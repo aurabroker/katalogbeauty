@@ -45,6 +45,7 @@ input,select,textarea{font-family:inherit}
 .bk-nav-cta{padding:.4rem 1rem;background:var(--v);color:#fff;border-radius:9999px;font-size:.8rem;font-weight:700;transition:.15s;flex-shrink:0;white-space:nowrap}
 .bk-nav-cta:hover{background:var(--vd)}
 
+
 /* LAYOUT */
 .bk-container{max-width:1280px;margin:0 auto;padding:0 1.25rem}
 
@@ -118,6 +119,7 @@ window.BK = {
           <div class="bk-nav-links">
             <a href="index.html" class="bk-nav-link${active === "index" ? " active" : ""}">Katalog salonów</a>
             <a href="panel.html" class="bk-nav-link${active === "panel" ? " active" : ""}">Mój salon</a>
+            <a href="jobs.html" class="bk-nav-link${active === "jobs" ? " active" : ""}">Praca</a>
           </div>
           <a href="panel.html" class="bk-nav-cta">+ <span>Dodaj salon</span></a>
         </div>
