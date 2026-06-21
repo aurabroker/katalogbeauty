@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { page } from '$app/state';
 
   const links = [
@@ -9,8 +9,7 @@
 
   const path = $derived(page.url.pathname);
 
-  /** @param {string} href */
-  function isActive(href) {
+  function isActive(href: string): boolean {
     return href === '/' ? path === '/' : path.startsWith(href);
   }
 </script>

@@ -1,14 +1,17 @@
 /* Globalny stan toastów (runes). Mutowanie tablicy zachowuje reaktywność. */
-export const toasts = $state([]);
+export type ToastType = 'info' | 'success' | 'error';
+
+export interface ToastItem {
+  id: number;
+  msg: string;
+  type: ToastType;
+}
+
+export const toasts = $state<ToastItem[]>([]);
 
 let nextId = 0;
 
-/**
- * @param {string} msg
- * @param {'info'|'success'|'error'} [type]
- * @param {number} [ms]
- */
-export function toast(msg, type = 'info', ms = 3500) {
+export function toast(msg: string, type: ToastType = 'info', ms = 3500): void {
   const id = ++nextId;
   toasts.push({ id, msg, type });
   setTimeout(() => {

@@ -1,6 +1,6 @@
-<script>
-  /** @type {{ salon: any }} */
-  let { salon } = $props();
+<script lang="ts">
+  import type { SalonWithRelations } from '$lib/database.types';
+  let { salon }: { salon: SalonWithRelations } = $props();
 
   const cover = $derived(
     salon.salon_photos?.find((p) => p.is_cover)?.url ?? salon.salon_photos?.[0]?.url ?? ''

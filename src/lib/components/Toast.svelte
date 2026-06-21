@@ -1,5 +1,5 @@
-<script>
-  import { toasts } from '$lib/stores/toast.svelte.js';
+<script lang="ts">
+  import { toasts } from '$lib/stores/toast.svelte';
 </script>
 
 <div id="bk-toast" aria-live="polite">

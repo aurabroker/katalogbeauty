@@ -1,16 +1,15 @@
-<script>
+<script lang="ts">
   import { sb } from '$lib/supabase';
-  import { toast } from '$lib/stores/toast.svelte.js';
+  import { toast } from '$lib/stores/toast.svelte';
 
-  /** @type {{ title?: string, subtitle?: string, backHref?: string, backLabel?: string }} */
   let {
     title = 'Panel właściciela',
     subtitle = 'Zaloguj się lub utwórz konto, aby zarządzać swoim salonem.',
     backHref = '',
     backLabel = ''
-  } = $props();
+  }: { title?: string; subtitle?: string; backHref?: string; backLabel?: string } = $props();
 
-  let tab = $state('login');
+  let tab = $state<'login' | 'register'>('login');
   let lEmail = $state('');
   let lPass = $state('');
   let rEmail = $state('');

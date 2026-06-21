@@ -1,25 +1,40 @@
-<script>
+<script lang="ts">
   import { sb } from '$lib/supabase';
-  import { auth } from '$lib/stores/auth.svelte.js';
-  import { toast } from '$lib/stores/toast.svelte.js';
+  import { auth } from '$lib/stores/auth.svelte';
+  import { toast } from '$lib/stores/toast.svelte';
   import { VOIVODESHIPS } from '$lib/utils';
   import AuthForm from '$lib/components/AuthForm.svelte';
   import Spinner from '$lib/components/Spinner.svelte';
   import Footer from '$lib/components/Footer.svelte';
+  import type { Database, JobListing, JobType, JobStatus, Employment } from '$lib/database.types';
 
-  let myJobs = $state([]);
+  interface JobForm {
+    type: JobType;
+    title: string;
+    city: string;
+    voivodeship: string;
+    description: string;
+    salary_from: string;
+    salary_to: string;
+    employment: Employment | '';
+    phone: string;
+    email: string;
+    status: JobStatus;
+  }
+
+  let myJobs = $state<JobListing[]>([]);
   let loadingData = $state(false);
-  let loadedFor = null;
+  let loadedFor: string | null = null;
 
-  let editingId = $state(null);
+  let editingId = $state<string | null>(null);
   let saving = $state(false);
-  let form = $state(emptyForm());
+  let form = $state<JobForm>(emptyForm());
 
-  const statusLabel = { active: '✅ Aktywne', draft: '📝 Szkic', closed: '🔒 Zamknięte' };
-  const typeLabel = { hiring: '💼 Zatrudnię', looking: '🙋 Szukam pracy' };
-  const typeColor = { hiring: 'var(--v)', looking: '#0891b2' };
+  const statusLabel: Record<JobStatus, string> = { active: '✅ Aktywne', draft: '📝 Szkic', closed: '🔒 Zamknięte' };
+  const typeLabel: Record<JobType, string> = { hiring: '💼 Zatrudnię', looking: '🙋 Szukam pracy' };
+  const typeColor: Record<JobType, string> = { hiring: 'var(--v)', looking: '#0891b2' };
 
-  function emptyForm() {
+  function emptyForm(): JobForm {
     return {
       type: 'hiring', title: '', city: '', voivodeship: '', description: '',
       salary_from: '', salary_to: '', employment: '', phone: '', email: '', status: 'active'
@@ -33,7 +48,7 @@
     loadMyJobs(uid);
   });
 
-  async function loadMyJobs(uid) {
+  async function loadMyJobs(uid: string) {
     loadingData = true;
     const { data } = await sb
       .from('job_listings')
@@ -44,17 +59,18 @@
     myJobs = data ?? [];
   }
 
-  function editJob(id) {
+  function editJob(id: string) {
     editingId = id;
     const j = myJobs.find((x) => x.id === id);
+    if (!j) return;
     form = {
       type: j.type ?? 'hiring',
       title: j.title ?? '',
       city: j.city ?? '',
       voivodeship: j.voivodeship ?? '',
       description: j.description ?? '',
-      salary_from: j.salary_from ?? '',
-      salary_to: j.salary_to ?? '',
+      salary_from: j.salary_from != null ? String(j.salary_from) : '',
+      salary_to: j.salary_to != null ? String(j.salary_to) : '',
       employment: j.employment ?? '',
       phone: j.phone ?? '',
       email: j.email ?? '',
@@ -68,6 +84,7 @@
   }
 
   async function saveJob() {
+    if (!auth.user) return;
     if (!form.title.trim() || !form.city.trim()) {
       toast('Wypełnij stanowisko i miasto', 'error');
       return;
@@ -89,7 +106,7 @@
       phone: form.phone.trim() || null,
       email: form.email.trim() || null,
       status: form.status
-    };
+    } satisfies Database['public']['Tables']['job_listings']['Insert'];
     saving = true;
     let error, data;
     if (editingId) {
@@ -98,8 +115,8 @@
       ({ error, data } = await sb.from('job_listings').insert(payload).select().single());
     }
     saving = false;
-    if (error) {
-      toast('Błąd: ' + error.message, 'error');
+    if (error || !data) {
+      if (error) toast('Błąd: ' + error.message, 'error');
       return;
     }
     if (editingId) {
@@ -111,7 +128,7 @@
     cancelEdit();
   }
 
-  async function deleteJob(id) {
+  async function deleteJob(id: string) {
     if (!confirm('Usunąć to ogłoszenie?')) return;
     const { error } = await sb.from('job_listings').delete().eq('id', id);
     if (error) {

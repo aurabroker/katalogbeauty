@@ -1,59 +1,45 @@
-<script>
+<script lang="ts">
   import { onMount } from 'svelte';
-  import { page } from '$app/state';
-  import { sb } from '$lib/supabase';
   import { priceLabel, hoursToText } from '$lib/utils';
-  import Spinner from '$lib/components/Spinner.svelte';
   import Footer from '$lib/components/Footer.svelte';
+  import type { PageProps } from './$types';
+  import type { SalonService } from '$lib/database.types';
 
-  const id = page.params.id;
+  let { data }: PageProps = $props();
 
-  let salon = $state(null);
-  let loading = $state(true);
-  let notFound = $state(false);
+  const salon = $derived(data.salon);
   let lightbox = $state('');
 
-  let mapEl = $state();
-  let L = null;
+  let mapEl = $state<HTMLDivElement>();
+  let L: any = null;
 
   const photos = $derived(
-    (salon?.salon_photos ?? [])
+    (salon.salon_photos ?? [])
       .slice()
-      .sort((a, b) => b.is_cover - a.is_cover || a.sort_order - b.sort_order)
+      .sort((a, b) => Number(b.is_cover) - Number(a.is_cover) || a.sort_order - b.sort_order)
   );
   const cover = $derived(photos.find((p) => p.is_cover) ?? photos[0]);
-  const services = $derived(salon?.salon_services ?? []);
+  const services = $derived(salon.salon_services ?? []);
   const available = $derived(services.filter((s) => s.is_available !== false));
   const unavailable = $derived(services.filter((s) => s.is_available === false));
-  const hoursLines = $derived(hoursToText(salon?.opening_hours).split('\n').filter(Boolean));
+  const hoursLines = $derived(hoursToText(salon.opening_hours).split('\n').filter(Boolean));
   const socials = $derived(
     [
-      salon?.instagram_url && { label: 'Instagram', url: salon.instagram_url },
-      salon?.facebook_url && { label: 'Facebook', url: salon.facebook_url },
-      salon?.tiktok_url && { label: 'TikTok', url: salon.tiktok_url }
-    ].filter(Boolean)
+      salon.instagram_url && { label: 'Instagram', url: salon.instagram_url },
+      salon.facebook_url && { label: 'Facebook', url: salon.facebook_url },
+      salon.tiktok_url && { label: 'TikTok', url: salon.tiktok_url }
+    ].filter((s): s is { label: string; url: string } => Boolean(s))
   );
 
   onMount(async () => {
-    const { data, error } = await sb
-      .from('salons')
-      .select('*,salon_photos(*),salon_services(*)')
-      .eq('id', id)
-      .maybeSingle();
-    loading = false;
-    if (error || !data) {
-      notFound = true;
-      return;
-    }
-    salon = data;
-    if (data.lat && data.lng) {
+    if (salon.lat && salon.lng) {
       L = (await import('leaflet')).default;
-      setTimeout(initMap, 0);
+      initMap();
     }
   });
 
   function initMap() {
-    if (!L || !mapEl || !salon?.lat || !salon?.lng) return;
+    if (!L || !mapEl || !salon.lat || !salon.lng) return;
     const map = L.map(mapEl, { zoomControl: true, scrollWheelZoom: false }).setView(
       [salon.lat, salon.lng],
       15
@@ -66,149 +52,132 @@
 </script>
 
 <svelte:head>
-  <title>{salon ? `${salon.name} — BeautyKatalog` : 'BeautyKatalog'}</title>
-  {#if salon}
-    <meta name="description" content={salon.tagline || salon.description || `Profil salonu ${salon.name}`} />
-  {/if}
+  <title>{salon.name} — BeautyKatalog</title>
+  <meta name="description" content={salon.tagline || salon.description || `Profil salonu ${salon.name}`} />
 </svelte:head>
 
-{#if loading}
-  <Spinner />
-{:else if notFound}
-  <div class="bk-container" style="padding:4rem 1rem;text-align:center">
-    <p style="font-size:3rem;margin-bottom:1rem">😕</p>
-    <h2 style="margin-bottom:.5rem">Salon nie został znaleziony</h2>
-    <p style="color:var(--muted);margin-bottom:2rem">Sprawdź czy link jest poprawny.</p>
-    <a href="/" class="bk-btn bk-btn-primary">← Wróć do katalogu</a>
+<!-- HERO -->
+<div class="hero">
+  <div class="bk-container">
+    <a href="/" class="back">← Katalog salonów</a>
+    <div class="hero-row">
+      <div class="avatar">
+        {#if cover}
+          <img src={cover.url} alt={salon.name} />
+        {:else}
+          <div class="avatar-ph">💅</div>
+        {/if}
+      </div>
+      <div style="flex:1;min-width:200px">
+        <h1>{salon.name}</h1>
+        <p class="hero-loc">
+          📍 {salon.city}{salon.street ? `, ${salon.street}` : ''}{salon.postal_code ? ` ${salon.postal_code}` : ''}
+        </p>
+        {#if salon.tagline}<p class="hero-tag">{salon.tagline}</p>{/if}
+      </div>
+    </div>
   </div>
-{:else if salon}
-  <!-- HERO -->
-  <div class="hero">
-    <div class="bk-container">
-      <a href="/" class="back">← Katalog salonów</a>
-      <div class="hero-row">
-        <div class="avatar">
-          {#if cover}
-            <img src={cover.url} alt={salon.name} />
-          {:else}
-            <div class="avatar-ph">💅</div>
+</div>
+
+<!-- GALERIA -->
+{#if photos.length}
+  <div class="gallery">
+    <div class="bk-container gallery-row">
+      {#each photos as p}
+        <button class="gallery-item" style="width:{photos.length === 1 ? '100%' : '220px'}" onclick={() => (lightbox = p.url)}>
+          <img src={p.url} alt="Zdjęcie salonu" loading="lazy" />
+        </button>
+      {/each}
+    </div>
+  </div>
+{/if}
+
+<!-- GŁÓWNA TREŚĆ -->
+<main class="bk-container layout">
+  <div>
+    {#if salon.description}
+      <section class="bk-card block">
+        <h2>O salonie</h2>
+        <p class="desc">{salon.description}</p>
+      </section>
+    {/if}
+
+    <section class="bk-card block">
+      <h2>Zabiegi i usługi <span class="bk-badge" style="margin-left:.5rem">{services.length}</span></h2>
+      {#if services.length === 0}
+        <p style="color:var(--muted);font-size:.875rem">Salon nie dodał jeszcze listy zabiegów.</p>
+      {:else}
+        <div class="svc-list">
+          {#each available as sv}
+            {@render serviceRow(sv, false)}
+          {/each}
+          {#if unavailable.length}
+            <p class="svc-divider">Tymczasowo niedostępne</p>
+            {#each unavailable as sv}
+              {@render serviceRow(sv, true)}
+            {/each}
           {/if}
         </div>
-        <div style="flex:1;min-width:200px">
-          <h1>{salon.name}</h1>
-          <p class="hero-loc">
-            📍 {salon.city}{salon.street ? `, ${salon.street}` : ''}{salon.postal_code ? ` ${salon.postal_code}` : ''}
-          </p>
-          {#if salon.tagline}<p class="hero-tag">{salon.tagline}</p>{/if}
-        </div>
-      </div>
-    </div>
+      {/if}
+    </section>
   </div>
 
-  <!-- GALERIA -->
-  {#if photos.length}
-    <div class="gallery">
-      <div class="bk-container gallery-row">
-        {#each photos as p}
-          <button
-            class="gallery-item"
-            style="width:{photos.length === 1 ? '100%' : '220px'}"
-            onclick={() => (lightbox = p.url)}
-          >
-            <img src={p.url} alt="Zdjęcie salonu" loading="lazy" />
-          </button>
-        {/each}
+  <div class="side">
+    <!-- KONTAKT -->
+    <div class="bk-card" style="padding:1.25rem">
+      <h3>Kontakt</h3>
+      <div class="contact">
+        {#if salon.phone}<a href="tel:{salon.phone}" class="c-link"><span>📞</span>{salon.phone}</a>{/if}
+        {#if salon.email_contact}<a href="mailto:{salon.email_contact}" class="c-link"><span>✉️</span>{salon.email_contact}</a>{/if}
+        {#if salon.website}<a href={salon.website} target="_blank" rel="noopener" class="c-link c-www"><span>🌐</span>Strona WWW</a>{/if}
+        {#if salon.street}<p class="c-link c-addr"><span>📍</span><span>{salon.street}, {salon.city}{salon.postal_code ? ` ${salon.postal_code}` : ''}</span></p>{/if}
       </div>
-    </div>
-  {/if}
-
-  <!-- GŁÓWNA TREŚĆ -->
-  <main class="bk-container layout">
-    <div>
-      {#if salon.description}
-        <section class="bk-card block">
-          <h2>O salonie</h2>
-          <p class="desc">{salon.description}</p>
-        </section>
+      {#if socials.length}
+        <div class="socials">
+          {#each socials as s, i}
+            <a href={s.url} target="_blank" rel="noopener">{s.label}</a>{#if i < socials.length - 1}<span> · </span>{/if}
+          {/each}
+        </div>
       {/if}
-
-      <section class="bk-card block">
-        <h2>Zabiegi i usługi <span class="bk-badge" style="margin-left:.5rem">{services.length}</span></h2>
-        {#if services.length === 0}
-          <p style="color:var(--muted);font-size:.875rem">Salon nie dodał jeszcze listy zabiegów.</p>
-        {:else}
-          <div class="svc-list">
-            {#each available as sv}
-              {@render serviceRow(sv, false)}
-            {/each}
-            {#if unavailable.length}
-              <p class="svc-divider">Tymczasowo niedostępne</p>
-              {#each unavailable as sv}
-                {@render serviceRow(sv, true)}
-              {/each}
-            {/if}
-          </div>
-        {/if}
-      </section>
     </div>
 
-    <div class="side">
-      <!-- KONTAKT -->
+    <!-- GODZINY -->
+    {#if hoursLines.length}
       <div class="bk-card" style="padding:1.25rem">
-        <h3>Kontakt</h3>
-        <div class="contact">
-          {#if salon.phone}<a href="tel:{salon.phone}" class="c-link"><span>📞</span>{salon.phone}</a>{/if}
-          {#if salon.email_contact}<a href="mailto:{salon.email_contact}" class="c-link"><span>✉️</span>{salon.email_contact}</a>{/if}
-          {#if salon.website}<a href={salon.website} target="_blank" rel="noopener" class="c-link c-www"><span>🌐</span>Strona WWW</a>{/if}
-          {#if salon.street}<p class="c-link c-addr"><span>📍</span><span>{salon.street}, {salon.city}{salon.postal_code ? ` ${salon.postal_code}` : ''}</span></p>{/if}
+        <h3>🕐 Godziny otwarcia</h3>
+        <div style="display:flex;flex-direction:column;gap:.2rem">
+          {#each hoursLines as line}<p style="font-size:.875rem;color:var(--muted)">{line}</p>{/each}
         </div>
-        {#if socials.length}
-          <div class="socials">
-            {#each socials as s, i}
-              <a href={s.url} target="_blank" rel="noopener">{s.label}</a>{#if i < socials.length - 1}<span> · </span>{/if}
-            {/each}
-          </div>
-        {/if}
       </div>
+    {/if}
 
-      <!-- GODZINY -->
-      {#if hoursLines.length}
-        <div class="bk-card" style="padding:1.25rem">
-          <h3>🕐 Godziny otwarcia</h3>
-          <div style="display:flex;flex-direction:column;gap:.2rem">
-            {#each hoursLines as line}<p style="font-size:.875rem;color:var(--muted)">{line}</p>{/each}
-          </div>
+    <!-- MAPA -->
+    {#if salon.lat && salon.lng}
+      <div class="bk-card" style="overflow:hidden">
+        <div bind:this={mapEl} style="height:220px"></div>
+        <div style="padding:.75rem 1rem">
+          <a
+            href="https://www.google.com/maps/search/?api=1&query={salon.lat},{salon.lng}"
+            target="_blank"
+            rel="noopener"
+            style="font-size:.8rem;color:var(--v);font-weight:700">Otwórz w Google Maps →</a
+          >
         </div>
-      {/if}
+      </div>
+    {/if}
 
-      <!-- MAPA -->
-      {#if salon.lat && salon.lng}
-        <div class="bk-card" style="overflow:hidden">
-          <div bind:this={mapEl} style="height:220px"></div>
-          <div style="padding:.75rem 1rem">
-            <a
-              href="https://www.google.com/maps/search/?api=1&query={salon.lat},{salon.lng}"
-              target="_blank"
-              rel="noopener"
-              style="font-size:.8rem;color:var(--v);font-weight:700">Otwórz w Google Maps →</a
-            >
-          </div>
+    <!-- CTA -->
+    {#if salon.phone || salon.email_contact}
+      <div class="bk-card cta">
+        <p>Umów wizytę</p>
+        <div style="display:flex;flex-direction:column;gap:.5rem">
+          {#if salon.phone}<a href="tel:{salon.phone}" class="bk-btn bk-btn-primary" style="width:100%;justify-content:center">📞 Zadzwoń</a>{/if}
+          {#if salon.email_contact}<a href="mailto:{salon.email_contact}" class="bk-btn bk-btn-outline" style="width:100%;justify-content:center">✉️ Napisz email</a>{/if}
         </div>
-      {/if}
-
-      <!-- CTA -->
-      {#if salon.phone || salon.email_contact}
-        <div class="bk-card cta">
-          <p>Umów wizytę</p>
-          <div style="display:flex;flex-direction:column;gap:.5rem">
-            {#if salon.phone}<a href="tel:{salon.phone}" class="bk-btn bk-btn-primary" style="width:100%;justify-content:center">📞 Zadzwoń</a>{/if}
-            {#if salon.email_contact}<a href="mailto:{salon.email_contact}" class="bk-btn bk-btn-outline" style="width:100%;justify-content:center">✉️ Napisz email</a>{/if}
-          </div>
-        </div>
-      {/if}
-    </div>
-  </main>
-{/if}
+      </div>
+    {/if}
+  </div>
+</main>
 
 <!-- LIGHTBOX -->
 {#if lightbox}
@@ -219,7 +188,7 @@
 
 <Footer>© 2026 BeautyKatalog by Aura Consulting · <a href="/">← Wróć do katalogu</a></Footer>
 
-{#snippet serviceRow(sv, dimmed)}
+{#snippet serviceRow(sv: SalonService, dimmed: boolean)}
   <div class="svc-row" class:dimmed>
     <div>
       <p class="svc-name">{sv.service_name}</p>

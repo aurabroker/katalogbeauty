@@ -1,13 +1,12 @@
-<script>
-  /** @type {{ open?: boolean, children?: import('svelte').Snippet }} */
-  let { open = $bindable(false), children } = $props();
+<script lang="ts">
+  import type { Snippet } from 'svelte';
+  let { open = $bindable(false), children }: { open?: boolean; children?: Snippet } = $props();
 
   function close() {
     open = false;
   }
 
-  /** @param {KeyboardEvent} e */
-  function onKey(e) {
+  function onKey(e: KeyboardEvent) {
     if (open && e.key === 'Escape') close();
   }
 </script>

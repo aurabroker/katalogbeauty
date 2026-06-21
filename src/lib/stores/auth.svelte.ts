@@ -1,11 +1,10 @@
 import { browser } from '$app/environment';
+import type { User } from '@supabase/supabase-js';
 import { sb } from '$lib/supabase';
 
 /* Globalny stan sesji użytkownika (runes). */
-export const auth = $state({
-  /** @type {import('@supabase/supabase-js').User | null} */
+export const auth = $state<{ user: User | null; ready: boolean }>({
   user: null,
-  /** false dopóki nie sprawdzimy sesji przy starcie */
   ready: false
 });
 

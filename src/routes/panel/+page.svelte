@@ -1,18 +1,19 @@
-<script>
+<script lang="ts">
   import { sb } from '$lib/supabase';
-  import { auth } from '$lib/stores/auth.svelte.js';
-  import { toast } from '$lib/stores/toast.svelte.js';
+  import { auth } from '$lib/stores/auth.svelte';
+  import { toast } from '$lib/stores/toast.svelte';
   import { slug, VOIVODESHIPS, priceLabel, hoursToText } from '$lib/utils';
   import AuthForm from '$lib/components/AuthForm.svelte';
   import Modal from '$lib/components/Modal.svelte';
   import Spinner from '$lib/components/Spinner.svelte';
   import Footer from '$lib/components/Footer.svelte';
+  import type { Database, SalonWithRelations, SalonService, SalonPhoto, Json } from '$lib/database.types';
 
-  let currentSalon = $state(null);
-  let services = $state([]);
-  let photos = $state([]);
+  let currentSalon = $state<SalonWithRelations | null>(null);
+  let services = $state<SalonService[]>([]);
+  let photos = $state<SalonPhoto[]>([]);
   let loadingData = $state(false);
-  let loadedFor = null; // user.id, dla którego już wczytano dane
+  let loadedFor: string | null = null; // user.id, dla którego już wczytano dane
 
   let activeTab = $state('salon');
   const tabs = [
@@ -28,7 +29,7 @@
 
   // modal zabiegu
   let svcOpen = $state(false);
-  let svcEditingId = $state(null);
+  let svcEditingId = $state<string | null>(null);
   let svcForm = $state({ service_name: '', price_from: '', price_to: '', duration_min: '', is_available: 'true' });
   let savingSvc = $state(false);
 
@@ -44,7 +45,7 @@
     };
   }
 
-  function populateForm(s) {
+  function populateForm(s: SalonWithRelations) {
     form = {
       name: s.name ?? '', tagline: s.tagline ?? '', description: s.description ?? '',
       status: s.status ?? 'active', city: s.city ?? '', street: s.street ?? '',
@@ -63,7 +64,7 @@
     loadSalon(uid);
   });
 
-  async function loadSalon(uid) {
+  async function loadSalon(uid: string) {
     loadingData = true;
     const { data, error } = await sb
       .from('salons')
@@ -75,11 +76,12 @@
       console.error(error);
       return;
     }
-    if (data) {
-      currentSalon = data;
-      services = data.salon_services ?? [];
-      photos = data.salon_photos ?? [];
-      populateForm(data);
+    const salon = data as unknown as SalonWithRelations | null;
+    if (salon) {
+      currentSalon = salon;
+      services = salon.salon_services ?? [];
+      photos = salon.salon_photos ?? [];
+      populateForm(salon);
     } else {
       currentSalon = null;
       services = [];
@@ -98,11 +100,12 @@
 
   /* ── ZAPIS SALONU ── */
   async function saveSalon() {
+    if (!auth.user) return;
     if (!form.name.trim() || !form.city.trim()) {
       toast('Wypełnij nazwę i miasto', 'error');
       return;
     }
-    let opening_hours = null;
+    let opening_hours: Json | null = null;
     if (form.hours.trim()) {
       try {
         opening_hours = JSON.parse(form.hours);
@@ -129,8 +132,8 @@
       nip: form.nip.trim() || null,
       regon: form.regon.trim() || null,
       opening_hours,
-      status: form.status
-    };
+      status: form.status as Database['public']['Tables']['salons']['Row']['status']
+    } satisfies Database['public']['Tables']['salons']['Insert'];
 
     savingSalon = true;
     let error;
@@ -166,20 +169,21 @@
   }
 
   /* ── ZABIEGI ── */
-  function openServiceModal(id) {
+  function openServiceModal(id: string | null) {
     svcEditingId = id;
     const svc = id ? services.find((s) => s.id === id) : null;
     svcForm = {
       service_name: svc?.service_name ?? '',
-      price_from: svc?.price_from ?? '',
-      price_to: svc?.price_to ?? '',
-      duration_min: svc?.duration_min ?? '',
+      price_from: svc?.price_from != null ? String(svc.price_from) : '',
+      price_to: svc?.price_to != null ? String(svc.price_to) : '',
+      duration_min: svc?.duration_min != null ? String(svc.duration_min) : '',
       is_available: String(svc?.is_available ?? true)
     };
     svcOpen = true;
   }
 
   async function saveService() {
+    if (!currentSalon) return;
     if (!svcForm.service_name.trim()) {
       toast('Podaj nazwę zabiegu', 'error');
       return;
@@ -191,7 +195,7 @@
       price_to: parseFloat(svcForm.price_to) || null,
       duration_min: parseInt(svcForm.duration_min) || null,
       is_available: svcForm.is_available === 'true'
-    };
+    } satisfies Database['public']['Tables']['salon_services']['Insert'];
     savingSvc = true;
     let error, data;
     if (svcEditingId) {
@@ -200,8 +204,8 @@
       ({ error, data } = await sb.from('salon_services').insert(payload).select().single());
     }
     savingSvc = false;
-    if (error) {
-      toast('Błąd: ' + error.message, 'error');
+    if (error || !data) {
+      if (error) toast('Błąd: ' + error.message, 'error');
       return;
     }
     if (svcEditingId) {
@@ -213,7 +217,7 @@
     toast('Zabieg zapisany ✓', 'success');
   }
 
-  async function deleteService(id) {
+  async function deleteService(id: string) {
     if (!confirm('Usunąć zabieg?')) return;
     const { error } = await sb.from('salon_services').delete().eq('id', id);
     if (error) {
@@ -225,8 +229,10 @@
   }
 
   /* ── ZDJĘCIA ── */
-  async function uploadPhotos(e) {
-    const files = Array.from(e.target.files ?? []);
+  async function uploadPhotos(e: Event) {
+    if (!currentSalon) return;
+    const input = e.target as HTMLInputElement;
+    const files = Array.from(input.files ?? []);
     if (!files.length) return;
     uploading = true;
     for (const file of files) {
@@ -234,7 +240,7 @@
         toast(`${file.name} > 5 MB`, 'error');
         continue;
       }
-      const ext = file.name.split('.').pop().toLowerCase();
+      const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg';
       const path = `${currentSalon.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
       const { error: upErr } = await sb.storage.from('salon-photos').upload(path, file, { upsert: false });
       if (upErr) {
@@ -260,18 +266,19 @@
       photos = [...photos, rec];
     }
     uploading = false;
-    e.target.value = '';
+    input.value = '';
     toast('Zdjęcia przesłane ✓', 'success');
   }
 
-  async function setCover(id) {
+  async function setCover(id: string) {
+    if (!currentSalon) return;
     await sb.from('salon_photos').update({ is_cover: false }).eq('salon_id', currentSalon.id);
     await sb.from('salon_photos').update({ is_cover: true }).eq('id', id);
     photos = photos.map((p) => ({ ...p, is_cover: p.id === id }));
     toast('Okładka ustawiona ✓', 'success');
   }
 
-  async function deletePhoto(id) {
+  async function deletePhoto(id: string) {
     if (!confirm('Usunąć to zdjęcie?')) return;
     const photo = photos.find((p) => p.id === id);
     if (photo?.storage_path) await sb.storage.from('salon-photos').remove([photo.storage_path]);
@@ -289,7 +296,7 @@
   }
 
   const sortedPhotos = $derived(
-    [...photos].sort((a, b) => b.is_cover - a.is_cover || a.sort_order - b.sort_order)
+    [...photos].sort((a, b) => Number(b.is_cover) - Number(a.is_cover) || a.sort_order - b.sort_order)
   );
 </script>
 
@@ -500,7 +507,7 @@
   <Footer><span style="color:var(--muted)">© 2026 BeautyKatalog</span></Footer>
 {/if}
 
-{#snippet section(title)}
+{#snippet section(title: string)}
   <h3 class="sec">{title}</h3>
 {/snippet}
 

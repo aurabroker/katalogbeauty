@@ -1,11 +1,11 @@
-<script>
+<script lang="ts">
   import { salaryLabel, EMPLOYMENT_LABELS, timeAgo } from '$lib/utils';
+  import type { JobListing } from '$lib/database.types';
 
   const LOOKING_COLOR = '#0891b2';
   const HIRING_COLOR = '#7c3aed';
 
-  /** @type {{ job: any }} */
-  let { job } = $props();
+  let { job }: { job: JobListing } = $props();
 
   const isHiring = $derived(job.type === 'hiring');
   const typeColor = $derived(isHiring ? HIRING_COLOR : LOOKING_COLOR);

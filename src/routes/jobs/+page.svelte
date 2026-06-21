@@ -1,16 +1,14 @@
-<script>
-  import { onMount } from 'svelte';
-  import { sb } from '$lib/supabase';
+<script lang="ts">
   import { plural, uniqueCities } from '$lib/utils';
   import JobCard from '$lib/components/JobCard.svelte';
-  import Spinner from '$lib/components/Spinner.svelte';
   import Footer from '$lib/components/Footer.svelte';
+  import type { PageProps } from './$types';
+
+  let { data }: PageProps = $props();
 
   const PER_PAGE = 12;
 
-  let allJobs = $state([]);
-  let loading = $state(true);
-  let error = $state('');
+  const allJobs = $derived(data.jobs);
   let q = $state('');
   let filterType = $state('');
   let filterCity = $state('');
@@ -46,20 +44,6 @@
     { id: 'hiring', label: '💼 Zatrudnię' },
     { id: 'looking', label: '🙋 Szukam pracy' }
   ];
-
-  onMount(async () => {
-    const { data, error: err } = await sb
-      .from('job_listings')
-      .select('*')
-      .eq('status', 'active')
-      .order('created_at', { ascending: false });
-    loading = false;
-    if (err) {
-      error = err.message;
-      return;
-    }
-    allJobs = data ?? [];
-  });
 </script>
 
 <svelte:head>
@@ -99,16 +83,14 @@
       <option value="">Wszystkie miasta</option>
       {#each cities as c}<option value={c}>{c}</option>{/each}
     </select>
-    <span class="count">{loading ? '' : countLabel}</span>
+    <span class="count">{countLabel}</span>
     <a href="/jobs/panel" class="bk-btn bk-btn-primary" style="font-size:.8rem;padding:.4rem .9rem;flex-shrink:0">+ Dodaj ogłoszenie</a>
   </div>
 </div>
 
 <main class="bk-container" style="padding-top:1.75rem;padding-bottom:3rem">
-  {#if loading}
-    <Spinner />
-  {:else if error}
-    <div class="bk-empty"><h3>Błąd ładowania</h3><p>{error}</p></div>
+  {#if data.loadError}
+    <div class="bk-empty"><h3>Błąd ładowania</h3><p>{data.loadError}</p></div>
   {:else if filtered.length === 0}
     <div class="bk-empty">
       <h3>Brak ogłoszeń</h3>

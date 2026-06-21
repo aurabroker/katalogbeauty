@@ -1,25 +1,25 @@
-<script>
+<script lang="ts">
   import { onMount } from 'svelte';
-  import { sb } from '$lib/supabase';
   import { plural, uniqueCities } from '$lib/utils';
   import SalonCard from '$lib/components/SalonCard.svelte';
-  import Spinner from '$lib/components/Spinner.svelte';
   import Footer from '$lib/components/Footer.svelte';
+  import type { PageProps } from './$types';
+  import type { SalonWithRelations } from '$lib/database.types';
+
+  let { data }: PageProps = $props();
 
   const PER_PAGE = 12;
 
-  let allSalons = $state([]);
-  let loading = $state(true);
-  let error = $state('');
+  const allSalons = $derived(data.salons);
   let q = $state('');
   let city = $state('');
   let page = $state(0);
   let showMap = $state(false);
 
-  let mapEl = $state();
-  let mapInstance = null;
-  let mapMarkers = [];
-  let L = null;
+  let mapEl = $state<HTMLDivElement>();
+  let mapInstance: any = null;
+  let mapMarkers: any[] = [];
+  let L: any = null;
 
   const cities = $derived(uniqueCities(allSalons));
 
@@ -36,7 +36,6 @@
   const visible = $derived(filtered.slice(0, (page + 1) * PER_PAGE));
   const countLabel = $derived(plural(filtered.length, 'salon', 'salony', 'salonów'));
 
-  // reset paginacji przy zmianie filtrów
   $effect(() => {
     q;
     city;
@@ -44,19 +43,6 @@
   });
 
   onMount(async () => {
-    const { data, error: err } = await sb
-      .from('salons')
-      .select(
-        'id,name,slug,city,street,tagline,description,lat,lng,salon_photos(url,is_cover),salon_services(id)'
-      )
-      .eq('status', 'active')
-      .order('created_at', { ascending: false });
-    loading = false;
-    if (err) {
-      error = err.message;
-      return;
-    }
-    allSalons = data ?? [];
     L = (await import('leaflet')).default;
   });
 
@@ -70,15 +56,14 @@
     }
     mapMarkers.forEach((m) => m.remove());
     mapMarkers = filtered
-      .filter((s) => s.lat && s.lng)
-      .map((s) => {
+      .filter((s: SalonWithRelations) => s.lat && s.lng)
+      .map((s: SalonWithRelations) => {
         const m = L.marker([s.lat, s.lng]).addTo(mapInstance);
         m.bindPopup(`<b>${s.name}</b><br>${s.city}<br><a href="/salon/${s.id}">Zobacz profil →</a>`);
         return m;
       });
   }
 
-  // odśwież markery, gdy mapa widoczna i zmieni się lista
   $effect(() => {
     if (showMap) {
       filtered;
@@ -115,7 +100,7 @@
       <option value="">Wszystkie miasta</option>
       {#each cities as c}<option value={c}>{c}</option>{/each}
     </select>
-    <span class="count">{loading ? '' : countLabel}</span>
+    <span class="count">{countLabel}</span>
     <button class="bk-btn bk-btn-outline" style="padding:.4rem .9rem;font-size:.8rem" onclick={() => (showMap = !showMap)}>
       {showMap ? '☰ Lista' : '🗺 Mapa'}
     </button>
@@ -125,10 +110,8 @@
 <main class="bk-container" style="padding-top:1.75rem;padding-bottom:3rem">
   <div class="map" class:hidden={!showMap} bind:this={mapEl}></div>
 
-  {#if loading}
-    <Spinner />
-  {:else if error}
-    <div class="bk-empty"><h3>Nie udało się załadować salonów</h3><p>{error}</p></div>
+  {#if data.loadError}
+    <div class="bk-empty"><h3>Nie udało się załadować salonów</h3><p>{data.loadError}</p></div>
   {:else if filtered.length === 0}
     <div class="bk-empty"><h3>Brak wyników</h3><p>Spróbuj innych słów kluczowych lub usuń filtry.</p></div>
   {:else}
