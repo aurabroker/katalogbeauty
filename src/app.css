@@ -1,23 +1,6 @@
 /* ================================================================
-   BeautyKatalog · app.js  v1.0
-   Shared: Supabase client, CSS, nav, utils
-   Ładowany synchronicznie przed każdym *-app.js
+   BeautyKatalog · globalne style (port z dawnego app.js)
 ================================================================ */
-(function () {
-"use strict";
-
-/* ── SUPABASE ─────────────────────────────────────────────────── */
-window.sb = supabase.createClient(
-  "https://kukvgsjrmrqtzhkszzum.supabase.co",
-  [
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.",
-    "eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt1a3Znc2pybXJxdHpoa3N6enVtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI5MTI0NzYsImV4cCI6MjA4ODQ4ODQ3Nn0.",
-    "wOB-4CJTcRksSUY7WD7CXEccTKNxPIVF8AT8hczS5zY"
-  ].join("")
-);
-
-/* ── GLOBAL CSS ───────────────────────────────────────────────── */
-document.head.insertAdjacentHTML("beforeend", `<style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
   --v:#7c3aed;--vl:#ede9fe;--vd:#5b21b6;
@@ -45,9 +28,8 @@ input,select,textarea{font-family:inherit}
 .bk-nav-cta{padding:.4rem 1rem;background:var(--v);color:#fff;border-radius:9999px;font-size:.8rem;font-weight:700;transition:.15s;flex-shrink:0;white-space:nowrap}
 .bk-nav-cta:hover{background:var(--vd)}
 
-
 /* LAYOUT */
-.bk-container{max-width:1280px;margin:0 auto;padding:0 1.25rem}
+.bk-container{max-width:1280px;margin:0 auto;padding:0 1.25rem;width:100%}
 
 /* BUTTONS */
 .bk-btn{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;padding:.55rem 1.25rem;border-radius:.6rem;font-size:.875rem;font-weight:600;border:none;transition:.18s;cursor:pointer}
@@ -95,61 +77,3 @@ input,select,textarea{font-family:inherit}
   .bk-nav-cta span{display:none}
   .bk-modal{padding:1.25rem}
 }
-</style>`);
-
-/* ── UTILITIES ────────────────────────────────────────────────── */
-window.BK = {
-
-  esc(s) {
-    return String(s ?? "").replace(/[&<>"']/g, c =>
-      ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":'&#39;' }[c]));
-  },
-
-  slug(str) {
-    return String(str).toLowerCase()
-      .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-  },
-
-  nav(active) {
-    document.body.insertAdjacentHTML("afterbegin", `
-      <nav id="bk-nav" aria-label="BeautyKatalog nawigacja">
-        <div class="bk-nav-inner">
-          <a href="index.html" class="bk-logo">Beauty<span>Katalog</span></a>
-          <div class="bk-nav-links">
-            <a href="index.html" class="bk-nav-link${active === "index" ? " active" : ""}">Katalog salonów</a>
-            <a href="panel.html" class="bk-nav-link${active === "panel" ? " active" : ""}">Mój salon</a>
-            <a href="jobs.html" class="bk-nav-link${active === "jobs" ? " active" : ""}">Praca</a>
-          </div>
-          <a href="panel.html" class="bk-nav-cta">+ <span>Dodaj salon</span></a>
-        </div>
-      </nav>
-      <div id="bk-toast" aria-live="polite"></div>`);
-  },
-
-  toast(msg, type = "info", ms = 3500) {
-    const wrap = document.getElementById("bk-toast");
-    if (!wrap) return;
-    const el = document.createElement("div");
-    el.className = `bk-toast-msg ${type}`;
-    el.textContent = msg;
-    wrap.appendChild(el);
-    setTimeout(() => el.remove(), ms);
-  },
-
-  modal(html) {
-    const bg = document.createElement("div");
-    bg.className = "bk-modal-bg";
-    bg.innerHTML = `<div class="bk-modal" role="dialog" aria-modal="true">
-      <button class="bk-modal-x" aria-label="Zamknij">&times;</button>
-      ${html}
-    </div>`;
-    bg.querySelector(".bk-modal-x").onclick = () => bg.remove();
-    bg.onclick = e => { if (e.target === bg) bg.remove(); };
-    document.body.appendChild(bg);
-    bg.querySelector("input, button")?.focus();
-    return bg;
-  }
-};
-
-})();

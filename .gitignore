@@ -1,0 +1,10 @@
+node_modules/
+/build/
+/.svelte-kit/
+/package-lock.json.bak
+.env
+.env.*
+!.env.example
+.DS_Store
+.vercel
+.output
