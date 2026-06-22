@@ -72,6 +72,29 @@ Cloudflare Turnstile przez wbudowaną integrację Supabase Auth. Włączenie wym
 Klucze tworzysz w panelu Cloudflare → **Turnstile** (dodaj domenę produkcyjną
 oraz `localhost` do testów). Klucze testowe Cloudflare: site `1x00000000000000000000AA`.
 
+## Panel administratora (`/admin`)
+Katalog salonów jest bezpłatny; **publikacja ogłoszeń o pracę jest płatna**
+(MVP: ręczna aktywacja przez administratora). Panel `/admin` (ukryty, `noindex`)
+daje administratorowi: statystyki (w tym przychód), moderację ogłoszeń
+(opłać+aktywuj z kwotą i terminem ważności, przedłuż, ukryj, usuń), moderację
+salonów (pokaż/ukryj/usuń) oraz zarządzanie użytkownikami (nadanie/odebranie roli
+admina).
+
+**Model bezpieczeństwa** — admin katalogu jest **izolowany** od innych aplikacji
+w tej samej bazie: tabela `katalog_admins` + funkcja `is_katalog_admin()`
+(nie używamy globalnego `is_admin()`/`profiles.rola`). Polityki RLS dają adminowi
+pełny dostęp do tabel katalogu, a właściciel może opublikować ogłoszenie
+(`status = active`) tylko gdy `payment_status = 'paid'` — paywall egzekwowany
+na poziomie bazy. Schemat: `supabase/migrations/20260622_katalog_admin_and_paid_jobs.sql`.
+
+**Nadanie pierwszego admina** (bootstrap — po rejestracji konta w aplikacji):
+```sql
+insert into public.katalog_admins (user_id)
+select id from auth.users where lower(email) = lower('twoj@email.pl')
+on conflict do nothing;
+```
+Kolejnych adminów nadaje się już z panelu (zakładka *Użytkownicy*).
+
 ## Struktura
 ```
 src/

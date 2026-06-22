@@ -8,6 +8,7 @@ export type SalonStatus = 'active' | 'draft' | 'paused';
 export type JobStatus = 'active' | 'draft' | 'closed';
 export type JobType = 'hiring' | 'looking';
 export type Employment = 'uop' | 'b2b' | 'zlecenie' | 'dowolna';
+export type JobPaymentStatus = 'unpaid' | 'paid';
 
 export interface Database {
   public: {
@@ -127,7 +128,12 @@ export interface Database {
           phone: string | null;
           email: string | null;
           status: JobStatus;
+          payment_status: JobPaymentStatus;
+          paid_at: string | null;
+          price_pln: number | null;
+          expires_at: string | null;
           created_at: string;
+          updated_at: string | null;
         };
         Insert: {
           id?: string;
@@ -143,7 +149,12 @@ export interface Database {
           phone?: string | null;
           email?: string | null;
           status?: JobStatus;
+          payment_status?: JobPaymentStatus;
+          paid_at?: string | null;
+          price_pln?: number | null;
+          expires_at?: string | null;
           created_at?: string;
+          updated_at?: string | null;
         };
         Update: Partial<Database['public']['Tables']['job_listings']['Insert']>;
         Relationships: [];
@@ -162,7 +173,22 @@ export interface Database {
       };
     };
     Views: Record<never, never>;
-    Functions: Record<never, never>;
+    Functions: {
+      is_katalog_admin: { Args: Record<string, never>; Returns: boolean };
+      katalog_admin_stats: { Args: Record<string, never>; Returns: Json };
+      katalog_admin_users: {
+        Args: Record<string, never>;
+        Returns: {
+          id: string;
+          email: string;
+          created_at: string;
+          salons_count: number;
+          jobs_count: number;
+          is_admin: boolean;
+        }[];
+      };
+      katalog_set_admin: { Args: { target: string; make_admin: boolean }; Returns: undefined };
+    };
     Enums: Record<never, never>;
     CompositeTypes: Record<never, never>;
   };

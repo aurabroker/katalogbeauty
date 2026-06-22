@@ -30,14 +30,20 @@
   let saving = $state(false);
   let form = $state<JobForm>(emptyForm());
 
-  const statusLabel: Record<JobStatus, string> = { active: '✅ Aktywne', draft: '📝 Szkic', closed: '🔒 Zamknięte' };
+  const statusLabel: Record<JobStatus, string> = { active: '✅ Opublikowane', draft: '📝 Szkic / oczekuje', closed: '🔒 Zamknięte' };
+
+  function expiryInfo(j: JobListing): string {
+    if (!j.expires_at) return '';
+    const diff = new Date(j.expires_at).getTime() - Date.now();
+    return diff <= 0 ? '⛔ wygasło' : `⏳ ważne ${Math.ceil(diff / 86400000)} dni`;
+  }
   const typeLabel: Record<JobType, string> = { hiring: '💼 Zatrudnię', looking: '🙋 Szukam pracy' };
   const typeColor: Record<JobType, string> = { hiring: 'var(--v)', looking: '#0891b2' };
 
   function emptyForm(): JobForm {
     return {
       type: 'hiring', title: '', city: '', voivodeship: '', description: '',
-      salary_from: '', salary_to: '', employment: '', phone: '', email: '', status: 'active'
+      salary_from: '', salary_to: '', employment: '', phone: '', email: '', status: 'draft'
     };
   }
 
@@ -186,6 +192,8 @@
               <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.3rem;flex-wrap:wrap">
                 <span style="font-size:.68rem;font-weight:800;color:{typeColor[j.type]}">{typeLabel[j.type]}</span>
                 <span style="font-size:.68rem;color:var(--muted)">{statusLabel[j.status]}</span>
+                {#if j.payment_status !== 'paid'}<span style="font-size:.62rem;font-weight:800;color:#dc2626">• nieopłacone</span>{/if}
+                {#if expiryInfo(j)}<span style="font-size:.62rem;color:var(--muted)">• {expiryInfo(j)}</span>{/if}
               </div>
               <p style="font-weight:700;font-size:.9rem;margin-bottom:.15rem">{j.title}</p>
               <p style="font-size:.78rem;color:var(--muted)">📍 {j.city}</p>
@@ -255,10 +263,13 @@
             <div>
               <label class="bk-label" for="jf-status">Status</label>
               <select id="jf-status" class="bk-input" bind:value={form.status}>
-                <option value="active">Aktywne (widoczne)</option>
-                <option value="draft">Szkic (ukryte)</option>
+                <option value="active" disabled>Opublikowane (płatne — aktywuje administrator)</option>
+                <option value="draft">Szkic / zgłoś do publikacji</option>
                 <option value="closed">Zamknięte</option>
               </select>
+              <p style="font-size:.72rem;color:var(--muted);margin-top:.4rem">
+                📢 Publikacja ogłoszenia jest płatna. Zapisz je jako <strong>szkic</strong> — po opłaceniu administrator aktywuje je i ustawi termin ważności.
+              </p>
             </div>
 
             <div style="display:flex;gap:.65rem;flex-wrap:wrap;padding-top:.25rem;border-top:1px solid var(--border)">
