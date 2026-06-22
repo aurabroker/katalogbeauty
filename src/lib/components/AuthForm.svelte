@@ -1,6 +1,8 @@
 <script lang="ts">
   import { sb } from '$lib/supabase';
   import { toast } from '$lib/stores/toast.svelte';
+  import { env } from '$env/dynamic/public';
+  import Turnstile from '$lib/components/Turnstile.svelte';
 
   let {
     title = 'Panel właściciela',
@@ -16,14 +18,31 @@
   let rPass = $state('');
   let busy = $state(false);
 
+  const turnstileEnabled = !!env.PUBLIC_TURNSTILE_SITE_KEY;
+  let captchaToken = $state('');
+  let turnstile = $state<Turnstile>();
+
+  // Sprawdza weryfikację Turnstile (jeśli włączona) i zwraca opcje captcha dla Supabase.
+  function captchaGuard(): { captchaToken: string } | undefined {
+    if (!turnstileEnabled) return undefined;
+    if (!captchaToken) {
+      toast('Potwierdź, że nie jesteś robotem', 'error');
+      return undefined;
+    }
+    return { captchaToken };
+  }
+
   async function doLogin() {
     if (!lEmail.trim() || !lPass) {
       toast('Uzupełnij email i hasło', 'error');
       return;
     }
+    const options = captchaGuard();
+    if (turnstileEnabled && !options) return;
     busy = true;
-    const { error } = await sb.auth.signInWithPassword({ email: lEmail.trim(), password: lPass });
+    const { error } = await sb.auth.signInWithPassword({ email: lEmail.trim(), password: lPass, options });
     busy = false;
+    turnstile?.reset();
     if (error) toast(error.message, 'error');
     // sukces: globalny store auth zareaguje i przełączy widok panelu
   }
@@ -33,9 +52,16 @@
       toast('Podaj poprawny email i hasło (min. 8 znaków)', 'error');
       return;
     }
+    const guard = captchaGuard();
+    if (turnstileEnabled && !guard) return;
     busy = true;
-    const { error } = await sb.auth.signUp({ email: rEmail.trim(), password: rPass });
+    const { error } = await sb.auth.signUp({
+      email: rEmail.trim(),
+      password: rPass,
+      options: { ...guard }
+    });
     busy = false;
+    turnstile?.reset();
     if (error) {
       toast(error.message, 'error');
       return;
@@ -48,7 +74,13 @@
       toast('Wpisz email powyżej', 'error');
       return;
     }
-    await sb.auth.resetPasswordForEmail(lEmail.trim(), { redirectTo: window.location.href });
+    const guard = captchaGuard();
+    if (turnstileEnabled && !guard) return;
+    await sb.auth.resetPasswordForEmail(lEmail.trim(), {
+      redirectTo: window.location.href,
+      ...guard
+    });
+    turnstile?.reset();
     toast('Link resetowania wysłany', 'success');
   }
 </script>
@@ -93,6 +125,8 @@
         </button>
       </div>
     {/if}
+
+    <Turnstile bind:this={turnstile} bind:token={captchaToken} />
 
     {#if backHref}
       <p class="back"><a href={backHref}>{backLabel || '← Wróć'}</a></p>

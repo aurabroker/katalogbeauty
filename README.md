@@ -55,6 +55,23 @@ PUBLIC_SUPABASE_URL=...
 PUBLIC_SUPABASE_ANON_KEY=...
 ```
 
+## Ochrona CAPTCHA (Cloudflare Turnstile)
+Formularze logowania, rejestracji i resetu hasła (`AuthForm.svelte`) obsługują
+Cloudflare Turnstile przez wbudowaną integrację Supabase Auth. Włączenie wymaga
+**dwóch** kroków:
+
+1. **Frontend** — ustaw zmienną środowiskową z kluczem witryny (site key):
+   ```
+   PUBLIC_TURNSTILE_SITE_KEY=0x4AAAAAAA...
+   ```
+   Gdy zmienna jest pusta, widget jest pomijany, a formularze działają bez CAPTCHA.
+2. **Supabase** — w panelu **Authentication → Attack Protection → Enable CAPTCHA
+   protection**, wybierz **Turnstile** i wklej **secret key** (klucz tajny ze
+   strony Cloudflare Turnstile). Supabase weryfikuje token po stronie serwera.
+
+Klucze tworzysz w panelu Cloudflare → **Turnstile** (dodaj domenę produkcyjną
+oraz `localhost` do testów). Klucze testowe Cloudflare: site `1x00000000000000000000AA`.
+
 ## Struktura
 ```
 src/
