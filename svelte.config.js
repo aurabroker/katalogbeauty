@@ -1,11 +1,11 @@
-import adapter from '@sveltejs/adapter-vercel';
+import adapter from '@sveltejs/adapter-cloudflare';
 import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 
 /** @type {import('@sveltejs/kit').Config} */
 const config = {
   preprocess: vitePreprocess(),
   kit: {
-    // SSR on-demand dla stron publicznych (SEO), panele renderowane po stronie klienta.
+    // SSR on-demand na Cloudflare Workers (SEO), panele renderowane po stronie klienta.
     adapter: adapter()
   }
 };
