@@ -7,11 +7,13 @@
   import Modal from '$lib/components/Modal.svelte';
   import Spinner from '$lib/components/Spinner.svelte';
   import Footer from '$lib/components/Footer.svelte';
-  import type { Database, SalonWithRelations, SalonService, SalonPhoto, Json } from '$lib/database.types';
+  import type { Database, SalonWithRelations, Service, GalleryAsset, Json } from '$lib/database.types';
+
+  const MEDIA_BUCKET = 'salon-media';
 
   let currentSalon = $state<SalonWithRelations | null>(null);
-  let services = $state<SalonService[]>([]);
-  let photos = $state<SalonPhoto[]>([]);
+  let services = $state<Service[]>([]);
+  let photos = $state<GalleryAsset[]>([]);
   let loadingData = $state(false);
   let loadedFor: string | null = null; // user.id, dla którego już wczytano dane
 
@@ -45,12 +47,19 @@
     };
   }
 
+  // mapuje status BEAUTY → wybór w formularzu (widoczny / ukryty / wstrzymany)
+  function statusToForm(s: SalonWithRelations): string {
+    if (s.status === 'active') return 'active';
+    if (s.status === 'suspended' || s.status === 'archived') return 'paused';
+    return 'draft';
+  }
+
   function populateForm(s: SalonWithRelations) {
     form = {
-      name: s.name ?? '', tagline: s.tagline ?? '', description: s.description ?? '',
-      status: s.status ?? 'active', city: s.city ?? '', street: s.street ?? '',
+      name: s.name ?? '', tagline: s.short_description ?? '', description: s.description ?? '',
+      status: statusToForm(s), city: s.city ?? '', street: s.address_line ?? '',
       postal_code: s.postal_code ?? '', voivodeship: s.voivodeship ?? '',
-      phone: s.phone ?? '', email_contact: s.email_contact ?? '', website: s.website ?? '',
+      phone: s.phone ?? '', email_contact: s.email ?? '', website: s.website_url ?? '',
       instagram_url: s.instagram_url ?? '', facebook_url: s.facebook_url ?? '', tiktok_url: s.tiktok_url ?? '',
       nip: s.nip ?? '', regon: s.regon ?? '', hours: hoursToText(s.opening_hours)
     };
@@ -68,8 +77,11 @@
     loadingData = true;
     const { data, error } = await sb
       .from('salons')
-      .select('*,salon_services(*),salon_photos(*)')
-      .eq('owner_id', uid)
+      .select('*,services(*),gallery_assets(*)')
+      .eq('owner_user_id', uid)
+      .eq('source', 'katalog')
+      .order('created_at', { ascending: true })
+      .limit(1)
       .maybeSingle();
     loadingData = false;
     if (error) {
@@ -79,8 +91,8 @@
     const salon = data as unknown as SalonWithRelations | null;
     if (salon) {
       currentSalon = salon;
-      services = salon.salon_services ?? [];
-      photos = salon.salon_photos ?? [];
+      services = salon.services ?? [];
+      photos = salon.gallery_assets ?? [];
       populateForm(salon);
     } else {
       currentSalon = null;
@@ -113,37 +125,56 @@
         opening_hours = { text: form.hours.trim() };
       }
     }
-    const payload = {
-      owner_id: auth.user.id,
+
+    // NIP: baza wymaga dokładnie 10 cyfr albo null
+    const nipDigits = form.nip.replace(/\D/g, '');
+    if (form.nip.trim() && nipDigits.length !== 10) {
+      toast('NIP musi mieć 10 cyfr (albo zostaw puste)', 'error');
+      return;
+    }
+
+    // status formularza → status BEAUTY + published_at
+    const dbStatus = (form.status === 'active' ? 'active' : form.status === 'paused' ? 'suspended' : 'draft') as
+      Database['public']['Tables']['salons']['Row']['status'];
+    const published_at =
+      dbStatus === 'active' ? currentSalon?.published_at ?? new Date().toISOString() : currentSalon?.published_at ?? null;
+
+    const base = {
       name: form.name.trim(),
-      slug: slug(form.name),
-      tagline: form.tagline.trim() || null,
+      short_description: form.tagline.trim() || null,
       description: form.description.trim() || null,
-      city: form.city.trim(),
-      street: form.street.trim() || null,
+      city: form.city.trim() || null,
+      address_line: form.street.trim() || null,
       postal_code: form.postal_code.trim() || null,
       voivodeship: form.voivodeship || null,
       phone: form.phone.trim() || null,
-      email_contact: form.email_contact.trim() || null,
-      website: form.website.trim() || null,
+      email: form.email_contact.trim() || null,
+      website_url: form.website.trim() || null,
       instagram_url: form.instagram_url.trim() || null,
       facebook_url: form.facebook_url.trim() || null,
       tiktok_url: form.tiktok_url.trim() || null,
-      nip: form.nip.trim() || null,
-      regon: form.regon.trim() || null,
+      nip: nipDigits.length === 10 ? nipDigits : null,
+      regon: form.regon.replace(/\D/g, '') || null,
       opening_hours,
-      status: form.status as Database['public']['Tables']['salons']['Row']['status']
-    } satisfies Database['public']['Tables']['salons']['Insert'];
+      status: dbStatus,
+      published_at
+    };
 
     savingSalon = true;
     let error;
     if (currentSalon) {
-      ({ error } = await sb.from('salons').update(payload).eq('id', currentSalon.id));
-      if (!error) currentSalon = { ...currentSalon, ...payload };
+      ({ error } = await sb.from('salons').update(base).eq('id', currentSalon.id));
+      if (!error) currentSalon = { ...currentSalon, ...base };
     } else {
-      const res = await sb.from('salons').insert(payload).select().single();
+      const insertPayload = {
+        ...base,
+        owner_user_id: auth.user.id,
+        source: 'katalog',
+        slug: `${slug(form.name) || 'salon'}-${Math.random().toString(36).slice(2, 7)}`
+      } satisfies Database['public']['Tables']['salons']['Insert'];
+      const res = await sb.from('salons').insert(insertPayload).select('*,services(*),gallery_assets(*)').single();
       error = res.error;
-      if (!error) currentSalon = res.data;
+      if (!error) currentSalon = res.data as unknown as SalonWithRelations;
     }
     savingSalon = false;
     if (error) {
@@ -173,11 +204,11 @@
     svcEditingId = id;
     const svc = id ? services.find((s) => s.id === id) : null;
     svcForm = {
-      service_name: svc?.service_name ?? '',
+      service_name: svc?.name ?? '',
       price_from: svc?.price_from != null ? String(svc.price_from) : '',
       price_to: svc?.price_to != null ? String(svc.price_to) : '',
       duration_min: svc?.duration_min != null ? String(svc.duration_min) : '',
-      is_available: String(svc?.is_available ?? true)
+      is_available: String(svc?.is_active ?? true)
     };
     svcOpen = true;
   }
@@ -188,20 +219,25 @@
       toast('Podaj nazwę zabiegu', 'error');
       return;
     }
-    const payload = {
-      salon_id: currentSalon.id,
-      service_name: svcForm.service_name.trim(),
+    const name = svcForm.service_name.trim();
+    const updatePayload = {
+      name,
       price_from: parseFloat(svcForm.price_from) || null,
       price_to: parseFloat(svcForm.price_to) || null,
       duration_min: parseInt(svcForm.duration_min) || null,
-      is_available: svcForm.is_available === 'true'
-    } satisfies Database['public']['Tables']['salon_services']['Insert'];
+      is_active: svcForm.is_available === 'true'
+    };
     savingSvc = true;
     let error, data;
     if (svcEditingId) {
-      ({ error, data } = await sb.from('salon_services').update(payload).eq('id', svcEditingId).select().single());
+      ({ error, data } = await sb.from('services').update(updatePayload).eq('id', svcEditingId).select().single());
     } else {
-      ({ error, data } = await sb.from('salon_services').insert(payload).select().single());
+      const insertPayload = {
+        ...updatePayload,
+        salon_id: currentSalon.id,
+        slug: `${slug(name) || 'usluga'}-${Math.random().toString(36).slice(2, 7)}`
+      } satisfies Database['public']['Tables']['services']['Insert'];
+      ({ error, data } = await sb.from('services').insert(insertPayload).select().single());
     }
     savingSvc = false;
     if (error || !data) {
@@ -219,7 +255,7 @@
 
   async function deleteService(id: string) {
     if (!confirm('Usunąć zabieg?')) return;
-    const { error } = await sb.from('salon_services').delete().eq('id', id);
+    const { error } = await sb.from('services').delete().eq('id', id);
     if (error) {
       toast('Błąd: ' + error.message, 'error');
       return;
@@ -242,18 +278,20 @@
       }
       const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg';
       const path = `${currentSalon.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-      const { error: upErr } = await sb.storage.from('salon-photos').upload(path, file, { upsert: false });
+      const { error: upErr } = await sb.storage.from(MEDIA_BUCKET).upload(path, file, { upsert: false });
       if (upErr) {
         toast('Błąd uploadu: ' + upErr.message, 'error');
         continue;
       }
-      const { data: urlData } = sb.storage.from('salon-photos').getPublicUrl(path);
+      const { data: urlData } = sb.storage.from(MEDIA_BUCKET).getPublicUrl(path);
       const { data: rec, error: dbErr } = await sb
-        .from('salon_photos')
+        .from('gallery_assets')
         .insert({
           salon_id: currentSalon.id,
-          url: urlData.publicUrl,
-          storage_path: path,
+          asset_type: 'image',
+          storage_provider: 'supabase',
+          public_url: urlData.publicUrl,
+          file_path: path,
           is_cover: photos.length === 0,
           sort_order: photos.length
         })
@@ -272,8 +310,8 @@
 
   async function setCover(id: string) {
     if (!currentSalon) return;
-    await sb.from('salon_photos').update({ is_cover: false }).eq('salon_id', currentSalon.id);
-    await sb.from('salon_photos').update({ is_cover: true }).eq('id', id);
+    await sb.from('gallery_assets').update({ is_cover: false }).eq('salon_id', currentSalon.id);
+    await sb.from('gallery_assets').update({ is_cover: true }).eq('id', id);
     photos = photos.map((p) => ({ ...p, is_cover: p.id === id }));
     toast('Okładka ustawiona ✓', 'success');
   }
@@ -281,15 +319,15 @@
   async function deletePhoto(id: string) {
     if (!confirm('Usunąć to zdjęcie?')) return;
     const photo = photos.find((p) => p.id === id);
-    if (photo?.storage_path) await sb.storage.from('salon-photos').remove([photo.storage_path]);
-    const { error } = await sb.from('salon_photos').delete().eq('id', id);
+    if (photo?.file_path) await sb.storage.from(MEDIA_BUCKET).remove([photo.file_path]);
+    const { error } = await sb.from('gallery_assets').delete().eq('id', id);
     if (error) {
       toast('Błąd: ' + error.message, 'error');
       return;
     }
     photos = photos.filter((p) => p.id !== id);
     if (photo?.is_cover && photos.length) {
-      await sb.from('salon_photos').update({ is_cover: true }).eq('id', photos[0].id);
+      await sb.from('gallery_assets').update({ is_cover: true }).eq('id', photos[0].id);
       photos = photos.map((p, i) => (i === 0 ? { ...p, is_cover: true } : p));
     }
     toast('Zdjęcie usunięte', 'info');
@@ -409,8 +447,8 @@
             {#each services as svc (svc.id)}
               <div class="bk-card svc-item">
                 <div style="flex:1;min-width:160px">
-                  <p style="font-weight:700;font-size:.95rem">{svc.service_name}</p>
-                  {#if !svc.is_available}<span style="font-size:.7rem;color:#dc2626;font-weight:700">niedostępny</span>{/if}
+                  <p style="font-weight:700;font-size:.95rem">{svc.name}</p>
+                  {#if !svc.is_active}<span style="font-size:.7rem;color:#dc2626;font-weight:700">niedostępny</span>{/if}
                 </div>
                 <div class="svc-meta">
                   {#if svc.duration_min}<span>⏱ {svc.duration_min} min</span>{/if}
@@ -450,7 +488,7 @@
             <div class="photos-grid">
               {#each sortedPhotos as p (p.id)}
                 <div class="bk-card" style="overflow:hidden">
-                  <img src={p.url} alt="Zdjęcie salonu" loading="lazy" style="width:100%;height:150px;object-fit:cover" />
+                  <img src={p.public_url} alt="Zdjęcie salonu" loading="lazy" style="width:100%;height:150px;object-fit:cover" />
                   <div class="photo-actions">
                     <label style="display:flex;align-items:center;gap:.35rem;font-size:.75rem;font-weight:700;cursor:pointer;color:{p.is_cover ? 'var(--v)' : 'var(--muted)'}">
                       <input type="radio" name="cover-photo" checked={p.is_cover} onchange={() => setCover(p.id)} />

@@ -56,9 +56,9 @@
     }
     mapMarkers.forEach((m) => m.remove());
     mapMarkers = filtered
-      .filter((s: SalonWithRelations) => s.lat && s.lng)
+      .filter((s: SalonWithRelations) => s.latitude && s.longitude)
       .map((s: SalonWithRelations) => {
-        const m = L.marker([s.lat, s.lng]).addTo(mapInstance);
+        const m = L.marker([s.latitude, s.longitude]).addTo(mapInstance);
         m.bindPopup(`<b>${s.name}</b><br>${s.city}<br><a href="/salon/${s.id}">Zobacz profil →</a>`);
         return m;
       });

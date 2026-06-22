@@ -2,10 +2,13 @@
   import type { SalonWithRelations } from '$lib/database.types';
   let { salon }: { salon: SalonWithRelations } = $props();
 
+  const gallery = $derived((salon.gallery_assets ?? []).filter((p) => p.is_active !== false));
   const cover = $derived(
-    salon.salon_photos?.find((p) => p.is_cover)?.url ?? salon.salon_photos?.[0]?.url ?? ''
+    salon.cover_image_url ?? gallery.find((p) => p.is_cover)?.public_url ?? gallery[0]?.public_url ?? ''
   );
-  const serviceCount = $derived(salon.salon_services?.length ?? 0);
+  const serviceCount = $derived(
+    (salon.services ?? []).filter((s) => s.is_active !== false).length
+  );
 </script>
 
 <a href="/salon/{salon.id}" class="bk-card card">
@@ -23,9 +26,9 @@
         <span class="bk-badge" style="flex-shrink:0">{serviceCount}&nbsp;zab.</span>
       {/if}
     </div>
-    <p class="loc">📍 {salon.city}{salon.street ? `, ${salon.street}` : ''}</p>
-    {#if salon.tagline || salon.description}
-      <p class="desc">{salon.tagline || salon.description}</p>
+    <p class="loc">📍 {salon.city}{salon.address_line ? `, ${salon.address_line}` : ''}</p>
+    {#if salon.short_description || salon.description}
+      <p class="desc">{salon.short_description || salon.description}</p>
     {/if}
     <span class="more">Zobacz profil →</span>
   </div>

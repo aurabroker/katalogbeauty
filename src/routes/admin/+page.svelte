@@ -148,11 +148,14 @@
 
   // ---- Salony ----
   async function toggleSalon(s: Salon) {
-    const next = s.status === 'active' ? 'paused' : 'active';
-    const { data, error } = await sb.from('salons').update({ status: next }).eq('id', s.id).select().single();
+    const activating = s.status !== 'active';
+    const patch = activating
+      ? { status: 'active' as const, published_at: s.published_at ?? new Date().toISOString() }
+      : { status: 'suspended' as const };
+    const { data, error } = await sb.from('salons').update(patch).eq('id', s.id).select().single();
     if (error || !data) return toast('Błąd: ' + (error?.message ?? ''), 'error');
     salons = salons.map((x) => (x.id === s.id ? (data as Salon) : x));
-    toast(next === 'active' ? 'Salon widoczny ✓' : 'Salon ukryty', 'info');
+    toast(activating ? 'Salon widoczny ✓' : 'Salon ukryty', 'info');
     void refreshStats();
   }
 

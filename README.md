@@ -47,6 +47,12 @@ Konfiguracja runtime (nazwa, `nodejs_compat`, katalog wyjściowy) jest w
 `wrangler.jsonc`.
 
 ## Konfiguracja Supabase
+Aplikacja korzysta z projektu **BEAUTY** (`dhuvykwecsxgchzxufxw`) i **współdzieli
+bazę** z aplikacją rezerwacyjną. Katalog używa tabel `salons`, `services`,
+`gallery_assets` oraz własnej `job_listings`. Dane katalogu są oznaczone
+`salons.source = 'katalog'`, dzięki czemu nie mieszają się z salonami systemu
+rezerwacji (RLS i panel admina są ograniczone do `source='katalog'`).
+
 Klucz `anon` jest publiczny i wbudowany w `src/lib/supabase.ts`. Bezpieczeństwo
 opiera się na politykach **RLS** w Supabase. Wartości można nadpisać zmiennymi
 środowiskowymi (prefiks `PUBLIC_`) — zob. `.env.example`:

@@ -6,7 +6,7 @@ import type { SalonWithRelations } from '$lib/database.types';
 export const load: PageLoad = async ({ params }) => {
   const { data, error: err } = await sb
     .from('salons')
-    .select('*,salon_photos(*),salon_services(*)')
+    .select('*,gallery_assets(*),services(*)')
     .eq('id', params.id)
     .maybeSingle();
 

@@ -3,7 +3,7 @@
   import { priceLabel, hoursToText } from '$lib/utils';
   import Footer from '$lib/components/Footer.svelte';
   import type { PageProps } from './$types';
-  import type { SalonService } from '$lib/database.types';
+  import type { Service } from '$lib/database.types';
 
   let { data }: PageProps = $props();
 
@@ -14,14 +14,15 @@
   let L: any = null;
 
   const photos = $derived(
-    (salon.salon_photos ?? [])
+    (salon.gallery_assets ?? [])
+      .filter((p) => p.is_active !== false && p.public_url)
       .slice()
       .sort((a, b) => Number(b.is_cover) - Number(a.is_cover) || a.sort_order - b.sort_order)
   );
   const cover = $derived(photos.find((p) => p.is_cover) ?? photos[0]);
-  const services = $derived(salon.salon_services ?? []);
-  const available = $derived(services.filter((s) => s.is_available !== false));
-  const unavailable = $derived(services.filter((s) => s.is_available === false));
+  const services = $derived((salon.services ?? []).filter((s) => s.is_active !== false));
+  const available = $derived(services);
+  const unavailable = $derived<Service[]>([]);
   const hoursLines = $derived(hoursToText(salon.opening_hours).split('\n').filter(Boolean));
   const socials = $derived(
     [
@@ -32,28 +33,30 @@
   );
 
   onMount(async () => {
-    if (salon.lat && salon.lng) {
+    if (salon.latitude && salon.longitude) {
       L = (await import('leaflet')).default;
       initMap();
     }
   });
 
   function initMap() {
-    if (!L || !mapEl || !salon.lat || !salon.lng) return;
+    if (!L || !mapEl || !salon.latitude || !salon.longitude) return;
     const map = L.map(mapEl, { zoomControl: true, scrollWheelZoom: false }).setView(
-      [salon.lat, salon.lng],
+      [salon.latitude, salon.longitude],
       15
     );
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a>'
     }).addTo(map);
-    L.marker([salon.lat, salon.lng]).addTo(map).bindPopup(`<b>${salon.name}</b><br>${salon.city}`);
+    L.marker([salon.latitude, salon.longitude])
+      .addTo(map)
+      .bindPopup(`<b>${salon.name}</b><br>${salon.city}`);
   }
 </script>
 
 <svelte:head>
   <title>{salon.name} — BeautyKatalog</title>
-  <meta name="description" content={salon.tagline || salon.description || `Profil salonu ${salon.name}`} />
+  <meta name="description" content={salon.short_description || salon.description || `Profil salonu ${salon.name}`} />
 </svelte:head>
 
 <!-- HERO -->
@@ -62,8 +65,10 @@
     <a href="/" class="back">← Katalog salonów</a>
     <div class="hero-row">
       <div class="avatar">
-        {#if cover}
-          <img src={cover.url} alt={salon.name} />
+        {#if cover?.public_url}
+          <img src={cover.public_url} alt={salon.name} />
+        {:else if salon.cover_image_url}
+          <img src={salon.cover_image_url} alt={salon.name} />
         {:else}
           <div class="avatar-ph">💅</div>
         {/if}
@@ -71,9 +76,9 @@
       <div style="flex:1;min-width:200px">
         <h1>{salon.name}</h1>
         <p class="hero-loc">
-          📍 {salon.city}{salon.street ? `, ${salon.street}` : ''}{salon.postal_code ? ` ${salon.postal_code}` : ''}
+          📍 {salon.city}{salon.address_line ? `, ${salon.address_line}` : ''}{salon.postal_code ? ` ${salon.postal_code}` : ''}
         </p>
-        {#if salon.tagline}<p class="hero-tag">{salon.tagline}</p>{/if}
+        {#if salon.short_description}<p class="hero-tag">{salon.short_description}</p>{/if}
       </div>
     </div>
   </div>
@@ -84,8 +89,8 @@
   <div class="gallery">
     <div class="bk-container gallery-row">
       {#each photos as p}
-        <button class="gallery-item" style="width:{photos.length === 1 ? '100%' : '220px'}" onclick={() => (lightbox = p.url)}>
-          <img src={p.url} alt="Zdjęcie salonu" loading="lazy" />
+        <button class="gallery-item" style="width:{photos.length === 1 ? '100%' : '220px'}" onclick={() => (lightbox = p.public_url ?? '')}>
+          <img src={p.public_url} alt="Zdjęcie salonu" loading="lazy" />
         </button>
       {/each}
     </div>
@@ -128,9 +133,9 @@
       <h3>Kontakt</h3>
       <div class="contact">
         {#if salon.phone}<a href="tel:{salon.phone}" class="c-link"><span>📞</span>{salon.phone}</a>{/if}
-        {#if salon.email_contact}<a href="mailto:{salon.email_contact}" class="c-link"><span>✉️</span>{salon.email_contact}</a>{/if}
-        {#if salon.website}<a href={salon.website} target="_blank" rel="noopener" class="c-link c-www"><span>🌐</span>Strona WWW</a>{/if}
-        {#if salon.street}<p class="c-link c-addr"><span>📍</span><span>{salon.street}, {salon.city}{salon.postal_code ? ` ${salon.postal_code}` : ''}</span></p>{/if}
+        {#if salon.email}<a href="mailto:{salon.email}" class="c-link"><span>✉️</span>{salon.email}</a>{/if}
+        {#if salon.website_url}<a href={salon.website_url} target="_blank" rel="noopener" class="c-link c-www"><span>🌐</span>Strona WWW</a>{/if}
+        {#if salon.address_line}<p class="c-link c-addr"><span>📍</span><span>{salon.address_line}, {salon.city}{salon.postal_code ? ` ${salon.postal_code}` : ''}</span></p>{/if}
       </div>
       {#if socials.length}
         <div class="socials">
@@ -152,12 +157,12 @@
     {/if}
 
     <!-- MAPA -->
-    {#if salon.lat && salon.lng}
+    {#if salon.latitude && salon.longitude}
       <div class="bk-card" style="overflow:hidden">
         <div bind:this={mapEl} style="height:220px"></div>
         <div style="padding:.75rem 1rem">
           <a
-            href="https://www.google.com/maps/search/?api=1&query={salon.lat},{salon.lng}"
+            href="https://www.google.com/maps/search/?api=1&query={salon.latitude},{salon.longitude}"
             target="_blank"
             rel="noopener"
             style="font-size:.8rem;color:var(--v);font-weight:700">Otwórz w Google Maps →</a
@@ -167,12 +172,12 @@
     {/if}
 
     <!-- CTA -->
-    {#if salon.phone || salon.email_contact}
+    {#if salon.phone || salon.email}
       <div class="bk-card cta">
         <p>Umów wizytę</p>
         <div style="display:flex;flex-direction:column;gap:.5rem">
           {#if salon.phone}<a href="tel:{salon.phone}" class="bk-btn bk-btn-primary" style="width:100%;justify-content:center">📞 Zadzwoń</a>{/if}
-          {#if salon.email_contact}<a href="mailto:{salon.email_contact}" class="bk-btn bk-btn-outline" style="width:100%;justify-content:center">✉️ Napisz email</a>{/if}
+          {#if salon.email}<a href="mailto:{salon.email}" class="bk-btn bk-btn-outline" style="width:100%;justify-content:center">✉️ Napisz email</a>{/if}
         </div>
       </div>
     {/if}
@@ -188,10 +193,10 @@
 
 <Footer>© 2026 BeautyKatalog by Aura Consulting · <a href="/">← Wróć do katalogu</a></Footer>
 
-{#snippet serviceRow(sv: SalonService, dimmed: boolean)}
+{#snippet serviceRow(sv: Service, dimmed: boolean)}
   <div class="svc-row" class:dimmed>
     <div>
-      <p class="svc-name">{sv.service_name}</p>
+      <p class="svc-name">{sv.name}</p>
       {#if sv.duration_min}<p class="svc-dur">⏱ {sv.duration_min} min</p>{/if}
     </div>
     {#if priceLabel(sv.price_from, sv.price_to)}

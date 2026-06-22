@@ -1,14 +1,18 @@
 /**
- * Typy schematu bazy Supabase (ręcznie utrzymywane na podstawie schematu projektu).
- * Można je w przyszłości zregenerować przez `supabase gen types typescript`.
+ * Typy schematu bazy Supabase — projekt BEAUTY (dhuvykwecsxgchzxufxw).
+ * Katalog współdzieli bazę z aplikacją rezerwacyjną i korzysta z jej tabel:
+ *   salons · services · gallery_assets · profiles
+ * oraz z własnej, dodanej tabeli job_listings.
+ * Można zregenerować przez `supabase gen types typescript`.
  */
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
-export type SalonStatus = 'active' | 'draft' | 'paused';
+/** Statusy z tabeli salons (BEAUTY) */
+export type SalonStatus = 'draft' | 'pending_review' | 'active' | 'suspended' | 'archived';
 export type JobStatus = 'active' | 'draft' | 'closed';
 export type JobType = 'hiring' | 'looking';
 export type Employment = 'uop' | 'b2b' | 'zlecenie' | 'dowolna';
-export type JobPaymentStatus = 'unpaid' | 'paid';
+export type PaymentStatus = 'unpaid' | 'paid';
 
 export interface Database {
   public: {
@@ -16,101 +20,145 @@ export interface Database {
       salons: {
         Row: {
           id: string;
-          owner_id: string;
+          owner_user_id: string;
           name: string;
-          slug: string | null;
-          tagline: string | null;
+          slug: string;
+          status: SalonStatus;
+          plan: string;
+          short_description: string | null;
           description: string | null;
-          city: string;
-          street: string | null;
-          postal_code: string | null;
-          voivodeship: string | null;
+          email: string | null;
           phone: string | null;
-          email_contact: string | null;
-          website: string | null;
-          instagram_url: string | null;
+          phone_secondary: string | null;
+          city: string | null;
+          address_line: string | null;
+          postal_code: string | null;
+          country_code: string;
+          latitude: number | null;
+          longitude: number | null;
+          cover_image_url: string | null;
+          logo_url: string | null;
+          website_url: string | null;
           facebook_url: string | null;
+          instagram_url: string | null;
           tiktok_url: string | null;
           nip: string | null;
           regon: string | null;
+          voivodeship: string | null;
           opening_hours: Json | null;
-          status: SalonStatus;
-          lat: number | null;
-          lng: number | null;
+          booking_enabled: boolean;
+          source: string | null;
+          published_at: string | null;
           created_at: string;
+          updated_at: string;
         };
         Insert: {
           id?: string;
-          owner_id: string;
+          owner_user_id: string;
           name: string;
-          slug?: string | null;
-          tagline?: string | null;
+          slug: string;
+          status?: SalonStatus;
+          plan?: string;
+          short_description?: string | null;
           description?: string | null;
-          city: string;
-          street?: string | null;
-          postal_code?: string | null;
-          voivodeship?: string | null;
+          email?: string | null;
           phone?: string | null;
-          email_contact?: string | null;
-          website?: string | null;
-          instagram_url?: string | null;
+          phone_secondary?: string | null;
+          city?: string | null;
+          address_line?: string | null;
+          postal_code?: string | null;
+          country_code?: string;
+          latitude?: number | null;
+          longitude?: number | null;
+          cover_image_url?: string | null;
+          logo_url?: string | null;
+          website_url?: string | null;
           facebook_url?: string | null;
+          instagram_url?: string | null;
           tiktok_url?: string | null;
           nip?: string | null;
           regon?: string | null;
+          voivodeship?: string | null;
           opening_hours?: Json | null;
-          status?: SalonStatus;
-          lat?: number | null;
-          lng?: number | null;
+          booking_enabled?: boolean;
+          source?: string | null;
+          published_at?: string | null;
           created_at?: string;
+          updated_at?: string;
         };
         Update: Partial<Database['public']['Tables']['salons']['Insert']>;
         Relationships: [];
       };
-      salon_services: {
+      services: {
         Row: {
           id: string;
           salon_id: string;
-          service_name: string;
+          category_id: number | null;
+          name: string;
+          slug: string;
+          short_description: string | null;
+          description: string | null;
+          duration_min: number | null;
           price_from: number | null;
           price_to: number | null;
-          duration_min: number | null;
-          is_available: boolean;
+          currency_code: string;
+          is_featured: boolean;
+          is_active: boolean;
           created_at: string;
+          updated_at: string;
         };
         Insert: {
           id?: string;
           salon_id: string;
-          service_name: string;
+          category_id?: number | null;
+          name: string;
+          slug: string;
+          short_description?: string | null;
+          description?: string | null;
+          duration_min?: number | null;
           price_from?: number | null;
           price_to?: number | null;
-          duration_min?: number | null;
-          is_available?: boolean;
+          currency_code?: string;
+          is_featured?: boolean;
+          is_active?: boolean;
           created_at?: string;
+          updated_at?: string;
         };
-        Update: Partial<Database['public']['Tables']['salon_services']['Insert']>;
+        Update: Partial<Database['public']['Tables']['services']['Insert']>;
         Relationships: [];
       };
-      salon_photos: {
+      gallery_assets: {
         Row: {
           id: string;
           salon_id: string;
-          url: string;
-          storage_path: string | null;
-          is_cover: boolean;
+          asset_type: string;
+          storage_provider: string;
+          file_path: string | null;
+          public_url: string | null;
+          alt_text: string | null;
+          title: string | null;
           sort_order: number;
+          is_cover: boolean;
+          is_active: boolean;
           created_at: string;
+          updated_at: string;
         };
         Insert: {
           id?: string;
           salon_id: string;
-          url: string;
-          storage_path?: string | null;
-          is_cover?: boolean;
+          asset_type?: string;
+          storage_provider?: string;
+          file_path?: string | null;
+          public_url?: string | null;
+          alt_text?: string | null;
+          title?: string | null;
           sort_order?: number;
+          is_cover?: boolean;
+          is_active?: boolean;
           created_at?: string;
+          updated_at?: string;
         };
-        Update: Partial<Database['public']['Tables']['salon_photos']['Insert']>;
+        Update: Partial<Database['public']['Tables']['gallery_assets']['Insert']>;
         Relationships: [];
       };
       job_listings: {
@@ -128,12 +176,12 @@ export interface Database {
           phone: string | null;
           email: string | null;
           status: JobStatus;
-          payment_status: JobPaymentStatus;
-          paid_at: string | null;
+          payment_status: PaymentStatus;
           price_pln: number | null;
+          paid_at: string | null;
           expires_at: string | null;
+          published_at: string | null;
           created_at: string;
-          updated_at: string | null;
         };
         Insert: {
           id?: string;
@@ -149,26 +197,38 @@ export interface Database {
           phone?: string | null;
           email?: string | null;
           status?: JobStatus;
-          payment_status?: JobPaymentStatus;
-          paid_at?: string | null;
+          payment_status?: PaymentStatus;
           price_pln?: number | null;
+          paid_at?: string | null;
           expires_at?: string | null;
+          published_at?: string | null;
           created_at?: string;
-          updated_at?: string | null;
         };
         Update: Partial<Database['public']['Tables']['job_listings']['Insert']>;
         Relationships: [];
       };
-      katalog_profiles: {
+      profiles: {
         Row: {
           id: string;
+          email: string | null;
+          full_name: string | null;
+          phone: string | null;
+          account_type: string | null;
+          status: string | null;
           created_at: string;
+          updated_at: string;
         };
         Insert: {
           id: string;
+          email?: string | null;
+          full_name?: string | null;
+          phone?: string | null;
+          account_type?: string | null;
+          status?: string | null;
           created_at?: string;
+          updated_at?: string;
         };
-        Update: Partial<Database['public']['Tables']['katalog_profiles']['Insert']>;
+        Update: Partial<Database['public']['Tables']['profiles']['Insert']>;
         Relationships: [];
       };
     };
@@ -196,12 +256,13 @@ export interface Database {
 
 /** Wygodne aliasy wierszy tabel */
 export type Salon = Database['public']['Tables']['salons']['Row'];
-export type SalonService = Database['public']['Tables']['salon_services']['Row'];
-export type SalonPhoto = Database['public']['Tables']['salon_photos']['Row'];
+export type Service = Database['public']['Tables']['services']['Row'];
+export type GalleryAsset = Database['public']['Tables']['gallery_assets']['Row'];
 export type JobListing = Database['public']['Tables']['job_listings']['Row'];
+export type Profile = Database['public']['Tables']['profiles']['Row'];
 
 /** Salon z dołączonymi relacjami (jak w zapytaniach z `select(...)`) */
 export type SalonWithRelations = Salon & {
-  salon_services?: SalonService[];
-  salon_photos?: SalonPhoto[];
+  services?: Service[];
+  gallery_assets?: GalleryAsset[];
 };

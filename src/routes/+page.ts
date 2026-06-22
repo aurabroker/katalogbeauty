@@ -6,9 +6,11 @@ export const load: PageLoad = async () => {
   const { data, error } = await sb
     .from('salons')
     .select(
-      'id,name,slug,city,street,tagline,description,lat,lng,salon_photos(url,is_cover),salon_services(id)'
+      'id,name,slug,city,address_line,short_description,description,latitude,longitude,gallery_assets(public_url,is_cover,is_active),services(id,is_active)'
     )
     .eq('status', 'active')
+    .eq('source', 'katalog')
+    .not('published_at', 'is', null)
     .order('created_at', { ascending: false });
 
   return {
