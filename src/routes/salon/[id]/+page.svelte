@@ -221,7 +221,7 @@
         <h2>Zespół</h2>
         <div class="team">
           {#each data.team as member}
-            <div class="member">
+            <a class="member" href="/specjalista/{member.id}">
               <div class="m-avatar">
                 {#if member.photo_url}
                   <img src={member.photo_url} alt={member.name} loading="lazy" />
@@ -231,7 +231,7 @@
               </div>
               <p class="m-name">{member.name}</p>
               {#if member.role_label}<p class="m-role">{member.role_label}</p>{/if}
-            </div>
+            </a>
           {/each}
         </div>
       </section>
@@ -567,6 +567,14 @@
   }
   .member {
     text-align: center;
+    color: inherit;
+    display: block;
+  }
+  .member:hover .m-avatar {
+    border-color: var(--accent);
+  }
+  .member:hover .m-name {
+    color: var(--accent);
   }
   .m-avatar {
     width: 84px;

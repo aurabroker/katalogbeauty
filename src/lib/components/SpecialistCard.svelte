@@ -11,11 +11,7 @@
   );
 </script>
 
-<a
-  href={specialist.salon ? `/salon/${specialist.salon.id}` : '#'}
-  class="bk-card card"
-  aria-label={specialist.name}
->
+<a href="/specjalista/{specialist.id}" class="bk-card card" aria-label={specialist.name}>
   <div class="avatar">
     {#if specialist.photo_url}
       <img src={specialist.photo_url} alt={specialist.name} loading="lazy" />
