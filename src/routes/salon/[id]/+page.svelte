@@ -207,7 +207,7 @@
 
 <style>
   .hero {
-    background: linear-gradient(135deg, #3b0764, #7c3aed);
+    background: var(--ink);
     color: #fff;
     padding: 2.5rem 0 0;
   }

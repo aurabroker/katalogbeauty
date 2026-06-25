@@ -2,8 +2,8 @@
   import { salaryLabel, EMPLOYMENT_LABELS, timeAgo } from '$lib/utils';
   import type { JobListing } from '$lib/database.types';
 
-  const LOOKING_COLOR = '#0891b2';
-  const HIRING_COLOR = '#7c3aed';
+  const LOOKING_COLOR = '#2B2724'; // grafit — osoba szuka pracy
+  const HIRING_COLOR = '#B5532E'; // terakota — salon zatrudni
 
   let { job }: { job: JobListing } = $props();
 
@@ -30,8 +30,8 @@
   {/if}
 
   <div class="tags">
-    {#if salary}<span class="bk-badge" style="background:#f0fdf4;color:#15803d">💰 {salary}</span>{/if}
-    {#if emp}<span class="bk-badge" style="background:#f8fafc;color:var(--muted)">{emp}</span>{/if}
+    {#if salary}<span class="bk-badge bk-badge-ok">💰 {salary}</span>{/if}
+    {#if emp}<span class="bk-badge">{emp}</span>{/if}
   </div>
 
   <div class="contact">
@@ -52,11 +52,11 @@
     gap: 0.75rem;
     transition:
       transform 0.2s,
-      box-shadow 0.2s;
+      border-color 0.2s;
   }
   .card:hover {
     transform: translateY(-2px);
-    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.1);
+    border-color: var(--line-strong);
   }
   .row {
     display: flex;
@@ -66,11 +66,11 @@
   }
   .type {
     font-size: 0.7rem;
-    font-weight: 800;
+    font-weight: 500;
     text-transform: uppercase;
     letter-spacing: 0.08em;
     color: #fff;
-    padding: 0.2rem 0.6rem;
+    padding: 0.22rem 0.65rem;
     border-radius: 9999px;
   }
   .ago {
@@ -86,8 +86,8 @@
     color: var(--muted);
   }
   .desc {
-    font-size: 0.82rem;
-    color: #475569;
+    font-size: 0.85rem;
+    color: var(--ink-2);
     display: -webkit-box;
     -webkit-line-clamp: 3;
     line-clamp: 3;

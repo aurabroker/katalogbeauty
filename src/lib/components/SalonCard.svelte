@@ -41,16 +41,19 @@
     color: inherit;
     transition:
       transform 0.2s,
-      box-shadow 0.2s;
+      border-color 0.2s;
   }
   .card:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 12px 32px rgba(124, 58, 237, 0.15);
+    transform: translateY(-2px);
+    border-color: var(--line-strong);
+  }
+  .card:hover .more {
+    color: var(--accent-d);
   }
   .thumb {
-    height: 190px;
+    height: 200px;
     overflow: hidden;
-    background: linear-gradient(135deg, #ede9fe, #ddd6fe);
+    background: var(--blush);
     position: relative;
   }
   .thumb img {
@@ -76,16 +79,17 @@
     margin-bottom: 0.35rem;
   }
   .head h2 {
-    font-size: 0.975rem;
+    font-size: 1.1rem;
+    font-weight: 500;
   }
   .loc {
     font-size: 0.8rem;
-    color: var(--muted);
+    color: var(--ink-3);
     margin-bottom: 0.5rem;
   }
   .desc {
-    font-size: 0.82rem;
-    color: #475569;
+    font-size: 0.85rem;
+    color: var(--ink-2);
     display: -webkit-box;
     -webkit-line-clamp: 2;
     line-clamp: 2;
@@ -95,7 +99,8 @@
   }
   .more {
     font-size: 0.8rem;
-    color: var(--v);
-    font-weight: 700;
+    color: var(--accent);
+    font-weight: 500;
+    transition: color 0.2s;
   }
 </style>

@@ -136,27 +136,29 @@
 
 <style>
   .hero {
-    background: linear-gradient(135deg, #3b0764 0%, #7c3aed 55%, #a855f7 100%);
-    padding: 4rem 0 3rem;
-    color: #fff;
+    background: var(--card);
+    border-bottom: 1px solid var(--line);
+    padding: 4rem 0 3.25rem;
+    color: var(--ink);
   }
   .eyebrow {
-    font-size: 0.8rem;
-    font-weight: 700;
-    letter-spacing: 0.12em;
+    font-size: 0.78rem;
+    font-weight: 500;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
-    opacity: 0.7;
-    margin-bottom: 0.5rem;
+    color: var(--accent);
+    margin-bottom: 0.85rem;
   }
   .hero h1 {
-    font-size: clamp(1.8rem, 5vw, 3rem);
-    margin-bottom: 0.6rem;
+    font-size: clamp(2rem, 5vw, 3.1rem);
+    margin-bottom: 0.7rem;
+    color: var(--ink);
   }
   .lead {
-    font-size: 1rem;
-    opacity: 0.8;
+    font-size: 1.02rem;
+    color: var(--ink-2);
     margin-bottom: 2rem;
-    max-width: 520px;
+    max-width: 540px;
   }
   .search {
     display: flex;
@@ -165,17 +167,24 @@
   }
   .search input {
     flex: 1;
-    padding: 0.8rem 1.1rem;
-    border: none;
-    border-radius: 0.7rem;
+    padding: 0.85rem 1.15rem;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-sm);
     font-size: 0.95rem;
     outline: none;
+    background: var(--paper);
+    color: var(--ink);
+    transition: 0.15s;
+  }
+  .search input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(181, 83, 46, 0.12);
   }
   .filters {
-    background: #fff;
-    border-bottom: 1px solid var(--border);
+    background: var(--card);
+    border-bottom: 1px solid var(--line);
     position: sticky;
-    top: 58px;
+    top: 57px;
     z-index: 90;
   }
   .bar {
