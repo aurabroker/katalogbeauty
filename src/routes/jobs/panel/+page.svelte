@@ -38,7 +38,7 @@
     return diff <= 0 ? '⛔ wygasło' : `⏳ ważne ${Math.ceil(diff / 86400000)} dni`;
   }
   const typeLabel: Record<JobType, string> = { hiring: '💼 Zatrudnię', looking: '🙋 Szukam pracy' };
-  const typeColor: Record<JobType, string> = { hiring: 'var(--v)', looking: '#0891b2' };
+  const typeColor: Record<JobType, string> = { hiring: 'var(--accent)', looking: 'var(--ink)' };
 
   function emptyForm(): JobForm {
     return {
@@ -349,7 +349,7 @@
     color: #fff;
   }
   .type-btn.on-looking {
-    background: #0891b2;
+    background: var(--ink);
     color: #fff;
   }
   .danger {
