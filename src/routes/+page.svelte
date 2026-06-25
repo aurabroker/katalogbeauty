@@ -1,7 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { plural, uniqueCities } from '$lib/utils';
+  import { plural, uniqueCities, salaryLabel } from '$lib/utils';
   import SalonCard from '$lib/components/SalonCard.svelte';
+  import SpecialistCard from '$lib/components/SpecialistCard.svelte';
   import Footer from '$lib/components/Footer.svelte';
   import type { PageProps } from './$types';
   import type { SalonWithRelations } from '$lib/database.types';
@@ -13,6 +14,7 @@
   const allSalons = $derived(data.salons);
   let q = $state('');
   let city = $state('');
+  let activeCat = $state<number | null>(null);
   let page = $state(0);
   let showMap = $state(false);
 
@@ -27,6 +29,7 @@
     const needle = q.trim().toLowerCase();
     return allSalons.filter((s) => {
       if (city && s.city !== city) return false;
+      if (activeCat && !(s.services ?? []).some((sv) => sv.category_id === activeCat)) return false;
       if (needle && !`${s.name} ${s.city} ${s.description ?? ''}`.toLowerCase().includes(needle))
         return false;
       return true;
@@ -36,9 +39,14 @@
   const visible = $derived(filtered.slice(0, (page + 1) * PER_PAGE));
   const countLabel = $derived(plural(filtered.length, 'salon', 'salony', 'salonów'));
 
+  function toggleCat(id: number) {
+    activeCat = activeCat === id ? null : id;
+  }
+
   $effect(() => {
     q;
     city;
+    activeCat;
     page = 0;
   });
 
@@ -77,43 +85,70 @@
   <title>BeautyKatalog — Katalog Salonów Beauty w Polsce</title>
   <meta
     name="description"
-    content="Znajdź najlepszy salon beauty w Polsce. Przeglądaj salony, zabiegi, ceny i rezerwuj wizyty online."
+    content="Znajdź salon, zabieg lub specjalistę beauty w swojej okolicy. Salony, portfolia specjalistów, ceny i oferty pracy w branży beauty."
   />
 </svelte:head>
 
 <section class="hero">
   <div class="bk-container">
     <p class="eyebrow">BeautyKatalog · Polska</p>
-    <h1>Znajdź salon beauty<br />w swoim mieście</h1>
+    <h1>Znajdź salon, zabieg<br />lub specjalistę w okolicy</h1>
     <p class="lead">
-      Przeglądaj salony kosmetyczne, fryzjerskie, podologiczne i kosmetologiczne w całej Polsce.
+      Przeglądaj salony, portfolia specjalistów i cenniki — fryzjerstwo, paznokcie, brwi i rzęsy,
+      barber, kosmetyka, makijaż, masaż.
     </p>
+
     <div class="search">
-      <input type="search" placeholder="Szukaj salonu, miasta, zabiegu..." aria-label="Szukaj salonów" bind:value={q} />
+      <input
+        type="search"
+        class="co"
+        placeholder="Salon, zabieg lub specjalista…"
+        aria-label="Czego szukasz"
+        bind:value={q}
+      />
+      <select class="gdzie" aria-label="Gdzie" bind:value={city}>
+        <option value="">Cała Polska</option>
+        {#each cities as c}<option value={c}>{c}</option>{/each}
+      </select>
     </div>
+
+    {#if data.categories.length}
+      <div class="chips">
+        {#each data.categories as cat}
+          <button
+            class="bk-chip"
+            class:active={activeCat === cat.id}
+            onclick={() => toggleCat(cat.id)}
+          >
+            {cat.name}
+          </button>
+        {/each}
+      </div>
+    {/if}
   </div>
 </section>
 
-<div class="filters">
-  <div class="bk-container bar">
-    <select class="bk-input" style="width:auto;min-width:170px" aria-label="Filtruj po mieście" bind:value={city}>
-      <option value="">Wszystkie miasta</option>
-      {#each cities as c}<option value={c}>{c}</option>{/each}
-    </select>
-    <span class="count">{countLabel}</span>
-    <button class="bk-btn bk-btn-outline" style="padding:.4rem .9rem;font-size:.8rem" onclick={() => (showMap = !showMap)}>
-      {showMap ? '☰ Lista' : '🗺 Mapa'}
-    </button>
+<!-- SEKCJA: Salony w pobliżu -->
+<section class="bk-container block">
+  <div class="sec-head">
+    <h2>Salony w pobliżu</h2>
+    <div class="sec-tools">
+      <span class="count">{countLabel}</span>
+      <button class="bk-btn bk-btn-outline tool" onclick={() => (showMap = !showMap)}>
+        {showMap ? '☰ Lista' : '🗺 Mapa'}
+      </button>
+    </div>
   </div>
-</div>
 
-<main class="bk-container" style="padding-top:1.75rem;padding-bottom:3rem">
   <div class="map" class:hidden={!showMap} bind:this={mapEl}></div>
 
   {#if data.loadError}
     <div class="bk-empty"><h3>Nie udało się załadować salonów</h3><p>{data.loadError}</p></div>
   {:else if filtered.length === 0}
-    <div class="bk-empty"><h3>Brak wyników</h3><p>Spróbuj innych słów kluczowych lub usuń filtry.</p></div>
+    <div class="bk-empty">
+      <h3>Brak wyników</h3>
+      <p>Spróbuj innych słów kluczowych lub usuń filtry.</p>
+    </div>
   {:else}
     <div class="grid">
       {#each visible as salon (salon.id)}
@@ -121,24 +156,67 @@
       {/each}
     </div>
     {#if filtered.length > visible.length}
-      <div style="text-align:center;margin-top:2rem">
-        <button class="bk-btn bk-btn-outline" style="padding:.65rem 2rem" onclick={() => (page += 1)}>
-          Załaduj więcej
-        </button>
+      <div class="more-wrap">
+        <button class="bk-btn bk-btn-outline" onclick={() => (page += 1)}>Załaduj więcej</button>
       </div>
     {/if}
   {/if}
-</main>
+</section>
+
+<!-- SEKCJA: Specjaliści (wyróżnik produktu §9.1) -->
+{#if data.specialists.length}
+  <section class="bk-container block">
+    <div class="sec-head">
+      <h2>Specjaliści</h2>
+      <p class="sec-sub">Opinie i portfolio wędrują za osobą — nie za salonem.</p>
+    </div>
+    <div class="grid specialists">
+      {#each data.specialists as specialist (specialist.id)}
+        <SpecialistCard {specialist} />
+      {/each}
+    </div>
+  </section>
+{/if}
+
+<!-- PASEK: Pracuj w beauty (most do rynku pracy §9.1) -->
+<section class="work">
+  <div class="bk-container work-inner">
+    <div class="work-copy">
+      <p class="eyebrow accent">Dla branży</p>
+      <h2>Pracuj w beauty</h2>
+      <p>Etat, B2B albo wynajem fotela — oferty pracy i ogłoszenia specjalistów w jednym miejscu.</p>
+      <a href="/jobs" class="bk-btn bk-btn-primary">Zobacz oferty pracy</a>
+    </div>
+    {#if data.featuredJobs.length}
+      <div class="work-jobs">
+        {#each data.featuredJobs as job (job.id)}
+          <a href="/jobs" class="job-row">
+            <span class="job-type" class:looking={job.type === 'looking'}>
+              {job.type === 'hiring' ? 'Zatrudnię' : 'Szukam pracy'}
+            </span>
+            <span class="job-title">{job.title}</span>
+            <span class="job-meta">
+              {job.city}{salaryLabel(job.salary_from, job.salary_to)
+                ? ` · ${salaryLabel(job.salary_from, job.salary_to)}`
+                : ''}
+            </span>
+          </a>
+        {/each}
+      </div>
+    {/if}
+  </div>
+</section>
 
 <Footer>
   © 2026 BeautyKatalog by Aura Consulting · <a href="/">BeautyPolisa OC</a>
 </Footer>
 
 <style>
+  /* HERO */
   .hero {
     background: var(--card);
     border-bottom: 1px solid var(--line);
-    padding: 4rem 0 3.25rem;
+    padding: 4rem 0 3rem;
     color: var(--ink);
   }
   .eyebrow {
@@ -158,15 +236,17 @@
     font-size: 1.02rem;
     color: var(--ink-2);
     margin-bottom: 2rem;
-    max-width: 540px;
+    max-width: 560px;
   }
   .search {
     display: flex;
     gap: 0.6rem;
-    max-width: 580px;
+    max-width: 620px;
+    flex-wrap: wrap;
   }
-  .search input {
+  .search .co {
     flex: 1;
+    min-width: 220px;
     padding: 0.85rem 1.15rem;
     border: 1px solid var(--line-strong);
     border-radius: var(--r-sm);
@@ -176,37 +256,69 @@
     color: var(--ink);
     transition: 0.15s;
   }
-  .search input:focus {
+  .search .gdzie {
+    padding: 0.85rem 1.15rem;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-sm);
+    font-size: 0.95rem;
+    outline: none;
+    background: var(--paper);
+    color: var(--ink);
+    min-width: 160px;
+    transition: 0.15s;
+  }
+  .search .co:focus,
+  .search .gdzie:focus {
     border-color: var(--accent);
     box-shadow: 0 0 0 3px rgba(181, 83, 46, 0.12);
   }
-  .filters {
-    background: var(--card);
-    border-bottom: 1px solid var(--line);
-    position: sticky;
-    top: 57px;
-    z-index: 90;
+  .chips {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-top: 1.1rem;
   }
-  .bar {
-    padding-top: 0.65rem;
-    padding-bottom: 0.65rem;
+
+  /* SEKCJE */
+  .block {
+    padding-top: 2.75rem;
+    padding-bottom: 0.5rem;
+  }
+  .sec-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.4rem;
+  }
+  .sec-head h2 {
+    font-size: 1.6rem;
+  }
+  .sec-sub {
+    font-size: 0.88rem;
+    color: var(--ink-2);
+    max-width: 360px;
+  }
+  .sec-tools {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
-    flex-wrap: wrap;
+    gap: 0.85rem;
   }
   .count {
+    font-size: 0.82rem;
+    color: var(--ink-3);
+  }
+  .tool {
+    padding: 0.4rem 0.9rem;
     font-size: 0.8rem;
-    color: var(--muted);
-    font-weight: 600;
-    margin-left: auto;
   }
   .map {
     height: 420px;
-    border-radius: 1rem;
+    border-radius: var(--r);
     overflow: hidden;
-    margin-bottom: 1.75rem;
-    border: 1px solid var(--border);
+    margin-bottom: 1.5rem;
+    border: 1px solid var(--line);
   }
   .map.hidden {
     display: none;
@@ -215,5 +327,98 @@
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
     gap: 1.25rem;
+  }
+  .grid.specialists {
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  }
+  .more-wrap {
+    text-align: center;
+    margin-top: 2rem;
+  }
+
+  /* PASEK PRACUJ W BEAUTY */
+  .work {
+    background: var(--blush);
+    margin-top: 3rem;
+    padding: 3rem 0;
+  }
+  .work-inner {
+    display: flex;
+    gap: 2.5rem;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .work-copy {
+    flex: 1;
+    min-width: 260px;
+  }
+  .eyebrow.accent {
+    color: var(--accent-d);
+  }
+  .work-copy h2 {
+    font-size: 1.8rem;
+    margin-bottom: 0.5rem;
+  }
+  .work-copy p {
+    color: var(--accent-d);
+    margin-bottom: 1.25rem;
+    max-width: 420px;
+    font-size: 0.95rem;
+  }
+  .work-jobs {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    min-width: 280px;
+    flex: 1;
+  }
+  .job-row {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-template-areas:
+      'type title'
+      'type meta';
+    column-gap: 0.75rem;
+    align-items: center;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--r-sm);
+    padding: 0.8rem 1rem;
+    transition: border-color 0.2s;
+  }
+  .job-row:hover {
+    border-color: var(--line-strong);
+  }
+  .job-type {
+    grid-area: type;
+    align-self: center;
+    font-size: 0.66rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #fff;
+    background: var(--accent);
+    padding: 0.25rem 0.55rem;
+    border-radius: 9999px;
+    white-space: nowrap;
+  }
+  .job-type.looking {
+    background: var(--ink);
+  }
+  .job-title {
+    grid-area: title;
+    font-weight: 500;
+    font-size: 0.92rem;
+  }
+  .job-meta {
+    grid-area: meta;
+    font-size: 0.78rem;
+    color: var(--ink-3);
+  }
+
+  @media (max-width: 640px) {
+    .sec-head h2 {
+      font-size: 1.35rem;
+    }
   }
 </style>

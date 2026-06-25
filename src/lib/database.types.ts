@@ -207,6 +207,88 @@ export interface Database {
         Update: Partial<Database['public']['Tables']['job_listings']['Insert']>;
         Relationships: [];
       };
+      staff: {
+        Row: {
+          id: string;
+          salon_id: string;
+          user_id: string | null;
+          name: string;
+          role_label: string | null;
+          bio: string | null;
+          photo_url: string | null;
+          calendar_color: string;
+          is_active: boolean;
+          sort_order: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          salon_id: string;
+          user_id?: string | null;
+          name: string;
+          role_label?: string | null;
+          bio?: string | null;
+          photo_url?: string | null;
+          calendar_color?: string;
+          is_active?: boolean;
+          sort_order?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['staff']['Insert']>;
+        Relationships: [];
+      };
+      reviews: {
+        Row: {
+          id: string;
+          salon_id: string;
+          author_name: string;
+          rating: number;
+          content: string | null;
+          source: string;
+          status: string;
+          is_featured: boolean;
+          published_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          salon_id: string;
+          author_name: string;
+          rating: number;
+          content?: string | null;
+          source?: string;
+          status?: string;
+          is_featured?: boolean;
+          published_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['reviews']['Insert']>;
+        Relationships: [];
+      };
+      service_categories: {
+        Row: {
+          id: number;
+          name: string;
+          slug: string;
+          sort_order: number;
+          is_active: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          name: string;
+          slug: string;
+          sort_order?: number;
+          is_active?: boolean;
+          created_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['service_categories']['Insert']>;
+        Relationships: [];
+      };
       profiles: {
         Row: {
           id: string;
@@ -260,9 +342,20 @@ export type Service = Database['public']['Tables']['services']['Row'];
 export type GalleryAsset = Database['public']['Tables']['gallery_assets']['Row'];
 export type JobListing = Database['public']['Tables']['job_listings']['Row'];
 export type Profile = Database['public']['Tables']['profiles']['Row'];
+export type Staff = Database['public']['Tables']['staff']['Row'];
+export type Review = Database['public']['Tables']['reviews']['Row'];
+export type ServiceCategory = Database['public']['Tables']['service_categories']['Row'];
 
 /** Salon z dołączonymi relacjami (jak w zapytaniach z `select(...)`) */
 export type SalonWithRelations = Salon & {
   services?: Service[];
   gallery_assets?: GalleryAsset[];
+};
+
+/** Specjalista (staff) z salonem macierzystym — karta specjalisty (§8) */
+export type SpecialistWithSalon = Pick<
+  Staff,
+  'id' | 'name' | 'role_label' | 'photo_url' | 'salon_id'
+> & {
+  salon: Pick<Salon, 'id' | 'name' | 'slug' | 'city'> | null;
 };
