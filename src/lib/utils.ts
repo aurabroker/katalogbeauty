@@ -80,3 +80,17 @@ export function uniqueCities(items: { city: string | null }[]): string[] {
     a.localeCompare(b, 'pl')
   );
 }
+
+/** Pięć znaków gwiazdek wg oceny (zaokrąglenie do pełnej): "★★★★☆" */
+export function starString(rating: number): string {
+  const full = Math.round(rating);
+  return '★★★★★'.slice(0, full) + '☆☆☆☆☆'.slice(0, 5 - full);
+}
+
+/** Poziom cenowy salonu wg średniej ceny zabiegów: 1–3 (zł / zł·zł / zł·zł·zł) */
+export function priceTier(prices: (number | null)[]): number {
+  const vals = prices.filter((p): p is number => typeof p === 'number' && p > 0);
+  if (!vals.length) return 0;
+  const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+  return avg < 100 ? 1 : avg <= 250 ? 2 : 3;
+}

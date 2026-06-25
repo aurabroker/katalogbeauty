@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { priceLabel, hoursToText } from '$lib/utils';
+  import { priceLabel, hoursToText, starString, priceTier } from '$lib/utils';
   import Footer from '$lib/components/Footer.svelte';
   import type { PageProps } from './$types';
   import type { Service } from '$lib/database.types';
@@ -9,6 +9,7 @@
 
   const salon = $derived(data.salon);
   let lightbox = $state('');
+  let copied = $state(false);
 
   let mapEl = $state<HTMLDivElement>();
   let L: any = null;
@@ -19,10 +20,40 @@
       .slice()
       .sort((a, b) => Number(b.is_cover) - Number(a.is_cover) || a.sort_order - b.sort_order)
   );
-  const cover = $derived(photos.find((p) => p.is_cover) ?? photos[0]);
+  const lead = $derived(photos[0] ?? null);
+  const thumbs = $derived(photos.slice(1, 5));
+  const extraCount = $derived(Math.max(0, photos.length - 5));
+
   const services = $derived((salon.services ?? []).filter((s) => s.is_active !== false));
-  const available = $derived(services);
-  const unavailable = $derived<Service[]>([]);
+
+  // Cennik pogrupowany kategoriami (§9.3)
+  const grouped = $derived.by(() => {
+    const byCat = new Map<string, { name: string; items: Service[] }>();
+    const catName = (id: number | null) =>
+      data.categories.find((c) => c.id === id)?.name ?? 'Pozostałe';
+    for (const sv of services) {
+      const key = String(sv.category_id ?? 'inne');
+      if (!byCat.has(key)) byCat.set(key, { name: catName(sv.category_id), items: [] });
+      byCat.get(key)!.items.push(sv);
+    }
+    return [...byCat.values()];
+  });
+
+  const tier = $derived(priceTier(services.map((s) => s.price_from)));
+
+  // Oceny (na poziomie salonu — reviews.salon_id)
+  const reviews = $derived(data.reviews);
+  const reviewCount = $derived(reviews.length);
+  const avgRating = $derived(
+    reviewCount ? reviews.reduce((a, r) => a + r.rating, 0) / reviewCount : 0
+  );
+  const distribution = $derived(
+    [5, 4, 3, 2, 1].map((star) => ({
+      star,
+      n: reviews.filter((r) => r.rating === star).length
+    }))
+  );
+
   const hoursLines = $derived(hoursToText(salon.opening_hours).split('\n').filter(Boolean));
   const socials = $derived(
     [
@@ -31,6 +62,25 @@
       salon.tiktok_url && { label: 'TikTok', url: salon.tiktok_url }
     ].filter((s): s is { label: string; url: string } => Boolean(s))
   );
+
+  const bookHref = $derived(
+    salon.phone ? `tel:${salon.phone}` : salon.email ? `mailto:${salon.email}` : '#kontakt'
+  );
+
+  async function share() {
+    const url = typeof location !== 'undefined' ? location.href : '';
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: salon.name, url });
+      } catch {
+        /* anulowano */
+      }
+    } else if (navigator.clipboard) {
+      await navigator.clipboard.writeText(url);
+      copied = true;
+      setTimeout(() => (copied = false), 2000);
+    }
+  }
 
   onMount(async () => {
     if (salon.latitude && salon.longitude) {
@@ -56,80 +106,175 @@
 
 <svelte:head>
   <title>{salon.name} — BeautyKatalog</title>
-  <meta name="description" content={salon.short_description || salon.description || `Profil salonu ${salon.name}`} />
+  <meta
+    name="description"
+    content={salon.short_description || salon.description || `Profil salonu ${salon.name}`}
+  />
 </svelte:head>
 
-<!-- HERO -->
-<div class="hero">
-  <div class="bk-container">
-    <a href="/" class="back">← Katalog salonów</a>
-    <div class="hero-row">
-      <div class="avatar">
-        {#if cover?.public_url}
-          <img src={cover.public_url} alt={salon.name} />
-        {:else if salon.cover_image_url}
-          <img src={salon.cover_image_url} alt={salon.name} />
-        {:else}
-          <div class="avatar-ph">💅</div>
-        {/if}
-      </div>
-      <div style="flex:1;min-width:200px">
-        <h1>{salon.name}</h1>
-        <p class="hero-loc">
-          📍 {salon.city}{salon.address_line ? `, ${salon.address_line}` : ''}{salon.postal_code ? ` ${salon.postal_code}` : ''}
-        </p>
-        {#if salon.short_description}<p class="hero-tag">{salon.short_description}</p>{/if}
-      </div>
-    </div>
-  </div>
+<div class="bk-container">
+  <nav class="crumb"><a href="/">Katalog salonów</a> <span>/</span> {salon.name}</nav>
 </div>
 
-<!-- GALERIA -->
+<!-- GALERIA — zdjęcia prowadzą (§4, §9.3) -->
 {#if photos.length}
-  <div class="gallery">
-    <div class="bk-container gallery-row">
-      {#each photos as p}
-        <button class="gallery-item" style="width:{photos.length === 1 ? '100%' : '220px'}" onclick={() => (lightbox = p.public_url ?? '')}>
-          <img src={p.public_url} alt="Zdjęcie salonu" loading="lazy" />
-        </button>
-      {/each}
+  <div class="bk-container">
+    <div class="gallery" class:single={photos.length === 1}>
+      <button class="lead" onclick={() => (lightbox = lead?.public_url ?? '')}>
+        <img src={lead?.public_url} alt={salon.name} />
+      </button>
+      {#if thumbs.length}
+        <div class="thumbs">
+          {#each thumbs as t, i}
+            <button
+              class="thumb"
+              onclick={() => (lightbox = t.public_url ?? '')}
+              aria-label="Zdjęcie {i + 2}"
+            >
+              <img src={t.public_url} alt="Zdjęcie salonu" loading="lazy" />
+              {#if i === thumbs.length - 1 && extraCount > 0}
+                <span class="more-overlay">+{extraCount} zdjęć</span>
+              {/if}
+            </button>
+          {/each}
+        </div>
+      {/if}
     </div>
   </div>
 {/if}
+
+<!-- BLOK NAGŁÓWKA -->
+<header class="bk-container head">
+  <div class="head-main">
+    <h1>{salon.name}</h1>
+    <div class="meta">
+      {#if reviewCount}
+        <span class="rating">
+          <span class="bk-stars">{starString(avgRating)}</span>
+          <strong>{avgRating.toFixed(1)}</strong>
+          <span class="rcount">({reviewCount})</span>
+        </span>
+        <span class="dot">·</span>
+      {/if}
+      {#if salon.city}<span>{salon.city}{salon.address_line ? `, ${salon.address_line}` : ''}</span>{/if}
+      {#if tier}
+        <span class="dot">·</span>
+        <span class="tier">
+          {#each [1, 2, 3] as t}<span class:on={t <= tier}>zł</span>{#if t < 3}<i>·</i>{/if}{/each}
+        </span>
+      {/if}
+    </div>
+    {#if salon.short_description}<p class="lead-tag">{salon.short_description}</p>{/if}
+  </div>
+  <div class="head-actions">
+    <a href={bookHref} class="bk-btn bk-btn-primary book">Umów wizytę</a>
+    <button class="bk-btn bk-btn-outline" onclick={share}>{copied ? '✓ Skopiowano' : '↗ Udostępnij'}</button>
+  </div>
+</header>
+
+<!-- PASEK SZYBKICH FAKTÓW -->
+<div class="bk-container facts">
+  {#if hoursLines.length}<span>🕐 {hoursLines[0]}</span>{/if}
+  {#if salon.address_line || salon.city}<span>📍 {salon.address_line ? `${salon.address_line}, ` : ''}{salon.city}</span>{/if}
+  {#if salon.phone}<a href="tel:{salon.phone}">📞 {salon.phone}</a>{/if}
+</div>
 
 <!-- GŁÓWNA TREŚĆ -->
 <main class="bk-container layout">
   <div>
     {#if salon.description}
-      <section class="bk-card block">
+      <section class="block">
         <h2>O salonie</h2>
         <p class="desc">{salon.description}</p>
       </section>
     {/if}
 
-    <section class="bk-card block">
-      <h2>Zabiegi i usługi <span class="bk-badge" style="margin-left:.5rem">{services.length}</span></h2>
+    <section class="block" id="cennik">
+      <h2>Cennik zabiegów</h2>
       {#if services.length === 0}
-        <p style="color:var(--muted);font-size:.875rem">Salon nie dodał jeszcze listy zabiegów.</p>
+        <p class="muted">Salon nie dodał jeszcze listy zabiegów.</p>
       {:else}
-        <div class="svc-list">
-          {#each available as sv}
-            {@render serviceRow(sv, false)}
-          {/each}
-          {#if unavailable.length}
-            <p class="svc-divider">Tymczasowo niedostępne</p>
-            {#each unavailable as sv}
-              {@render serviceRow(sv, true)}
+        {#each grouped as group}
+          <h3 class="cat">{group.name}</h3>
+          <div class="svc-list">
+            {#each group.items as sv}
+              <div class="svc-row">
+                <div class="svc-info">
+                  <p class="svc-name">{sv.name}</p>
+                  {#if sv.duration_min}<p class="svc-dur">⏱ {sv.duration_min} min</p>{/if}
+                </div>
+                {#if priceLabel(sv.price_from, sv.price_to)}
+                  <span class="svc-price">{priceLabel(sv.price_from, sv.price_to)}</span>
+                {/if}
+                {#if salon.phone || salon.email}
+                  <a href={bookHref} class="bk-btn bk-btn-outline svc-cta">Umów</a>
+                {/if}
+              </div>
             {/each}
-          {/if}
+          </div>
+        {/each}
+      {/if}
+    </section>
+
+    {#if data.team.length}
+      <section class="block">
+        <h2>Zespół</h2>
+        <div class="team">
+          {#each data.team as member}
+            <div class="member">
+              <div class="m-avatar">
+                {#if member.photo_url}
+                  <img src={member.photo_url} alt={member.name} loading="lazy" />
+                {:else}
+                  <span>{member.name.split(/\s+/).slice(0, 2).map((p) => p[0]?.toUpperCase()).join('')}</span>
+                {/if}
+              </div>
+              <p class="m-name">{member.name}</p>
+              {#if member.role_label}<p class="m-role">{member.role_label}</p>{/if}
+            </div>
+          {/each}
+        </div>
+      </section>
+    {/if}
+
+    <section class="block">
+      <h2>Opinie</h2>
+      {#if reviewCount === 0}
+        <p class="muted">Ten salon nie ma jeszcze opinii.</p>
+      {:else}
+        <div class="rev-summary">
+          <div class="rev-score">
+            <strong>{avgRating.toFixed(1)}</strong>
+            <span class="bk-stars">{starString(avgRating)}</span>
+            <span class="muted">{reviewCount}{' '}{reviewCount === 1 ? 'opinia' : 'opinii'}</span>
+          </div>
+          <div class="rev-dist">
+            {#each distribution as d}
+              <div class="dist-row">
+                <span class="dist-star">{d.star}★</span>
+                <span class="dist-bar"><span style="width:{reviewCount ? (d.n / reviewCount) * 100 : 0}%"></span></span>
+                <span class="dist-n">{d.n}</span>
+              </div>
+            {/each}
+          </div>
+        </div>
+        <div class="rev-list">
+          {#each reviews as r}
+            <div class="rev">
+              <div class="rev-head">
+                <span class="rev-author">{r.author_name}</span>
+                <span class="bk-stars">{starString(r.rating)}</span>
+              </div>
+              {#if r.content}<p class="rev-body">{r.content}</p>{/if}
+            </div>
+          {/each}
         </div>
       {/if}
     </section>
   </div>
 
-  <div class="side">
-    <!-- KONTAKT -->
-    <div class="bk-card" style="padding:1.25rem">
+  <aside class="side">
+    <div class="bk-card pad" id="kontakt">
       <h3>Kontakt</h3>
       <div class="contact">
         {#if salon.phone}<a href="tel:{salon.phone}" class="c-link"><span>📞</span>{salon.phone}</a>{/if}
@@ -146,43 +291,34 @@
       {/if}
     </div>
 
-    <!-- GODZINY -->
     {#if hoursLines.length}
-      <div class="bk-card" style="padding:1.25rem">
-        <h3>🕐 Godziny otwarcia</h3>
-        <div style="display:flex;flex-direction:column;gap:.2rem">
-          {#each hoursLines as line}<p style="font-size:.875rem;color:var(--muted)">{line}</p>{/each}
+      <div class="bk-card pad">
+        <h3>Godziny otwarcia</h3>
+        <div class="hours">
+          {#each hoursLines as line}<p>{line}</p>{/each}
         </div>
       </div>
     {/if}
 
-    <!-- MAPA -->
     {#if salon.latitude && salon.longitude}
-      <div class="bk-card" style="overflow:hidden">
-        <div bind:this={mapEl} style="height:220px"></div>
-        <div style="padding:.75rem 1rem">
+      <div class="bk-card map-card">
+        <div bind:this={mapEl} class="map"></div>
+        <div class="map-foot">
           <a
             href="https://www.google.com/maps/search/?api=1&query={salon.latitude},{salon.longitude}"
             target="_blank"
-            rel="noopener"
-            style="font-size:.8rem;color:var(--v);font-weight:700">Otwórz w Google Maps →</a
+            rel="noopener">Otwórz w Google Maps →</a
           >
         </div>
       </div>
     {/if}
-
-    <!-- CTA -->
-    {#if salon.phone || salon.email}
-      <div class="bk-card cta">
-        <p>Umów wizytę</p>
-        <div style="display:flex;flex-direction:column;gap:.5rem">
-          {#if salon.phone}<a href="tel:{salon.phone}" class="bk-btn bk-btn-primary" style="width:100%;justify-content:center">📞 Zadzwoń</a>{/if}
-          {#if salon.email}<a href="mailto:{salon.email}" class="bk-btn bk-btn-outline" style="width:100%;justify-content:center">✉️ Napisz email</a>{/if}
-        </div>
-      </div>
-    {/if}
-  </div>
+  </aside>
 </main>
+
+<!-- STICKY CTA (mobile) -->
+<div class="sticky-cta">
+  <a href={bookHref} class="bk-btn bk-btn-primary">Umów wizytę</a>
+</div>
 
 <!-- LIGHTBOX -->
 {#if lightbox}
@@ -193,175 +329,369 @@
 
 <Footer>© 2026 BeautyKatalog by Aura Consulting · <a href="/">← Wróć do katalogu</a></Footer>
 
-{#snippet serviceRow(sv: Service, dimmed: boolean)}
-  <div class="svc-row" class:dimmed>
-    <div>
-      <p class="svc-name">{sv.name}</p>
-      {#if sv.duration_min}<p class="svc-dur">⏱ {sv.duration_min} min</p>{/if}
-    </div>
-    {#if priceLabel(sv.price_from, sv.price_to)}
-      <span class="svc-price">{priceLabel(sv.price_from, sv.price_to)}</span>
-    {/if}
-  </div>
-{/snippet}
-
 <style>
-  .hero {
-    background: var(--ink);
-    color: #fff;
-    padding: 2.5rem 0 0;
+  .crumb {
+    font-size: 0.82rem;
+    color: var(--ink-3);
+    padding: 1.1rem 0 0.9rem;
   }
-  .back {
-    font-size: 0.8rem;
-    color: rgba(255, 255, 255, 0.7);
-    font-weight: 600;
-    display: inline-block;
-    margin-bottom: 1rem;
+  .crumb a {
+    color: var(--ink-2);
   }
-  .hero-row {
-    display: flex;
-    align-items: flex-start;
-    gap: 1.5rem;
-    flex-wrap: wrap;
-    padding-bottom: 2rem;
+  .crumb a:hover {
+    color: var(--accent);
   }
-  .avatar {
-    width: 80px;
-    height: 80px;
-    border-radius: 1rem;
+  .crumb span {
+    margin: 0 0.3rem;
+  }
+
+  /* GALERIA */
+  .gallery {
+    display: grid;
+    grid-template-columns: 1.6fr 1fr;
+    gap: 0.6rem;
+    height: 380px;
+  }
+  .gallery.single {
+    grid-template-columns: 1fr;
+  }
+  .lead,
+  .thumb {
+    border: none;
+    padding: 0;
+    border-radius: var(--r);
     overflow: hidden;
-    border: 3px solid rgba(255, 255, 255, 0.3);
-    flex-shrink: 0;
-    background: rgba(255, 255, 255, 0.1);
+    cursor: pointer;
+    background: var(--blush);
   }
-  .avatar img {
+  .lead {
+    height: 100%;
+  }
+  .lead img,
+  .thumb img {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    transition: transform 0.25s;
   }
-  .avatar-ph {
+  .lead:hover img,
+  .thumb:hover img {
+    transform: scale(1.02);
+  }
+  .thumbs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 0.6rem;
+  }
+  .thumb {
+    position: relative;
+    height: 100%;
+  }
+  .more-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(43, 39, 36, 0.55);
+    color: #fff;
     display: flex;
     align-items: center;
     justify-content: center;
-    height: 100%;
-    font-size: 2rem;
+    font-family: var(--serif);
+    font-size: 1.05rem;
+    font-weight: 500;
   }
-  .hero h1 {
-    font-size: clamp(1.5rem, 4vw, 2.2rem);
-    margin-bottom: 0.3rem;
+
+  /* NAGŁÓWEK */
+  .head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+    padding-top: 1.6rem;
   }
-  .hero-loc {
-    opacity: 0.8;
-    font-size: 0.95rem;
+  .head h1 {
+    font-size: clamp(1.8rem, 4vw, 2.6rem);
     margin-bottom: 0.5rem;
   }
-  .hero-tag {
-    opacity: 0.9;
-    font-style: italic;
-    font-size: 0.95rem;
-  }
-  .gallery {
-    background: #1e1b4b;
-    padding: 0.75rem 0;
-  }
-  .gallery-row {
+  .meta {
     display: flex;
+    align-items: center;
     gap: 0.5rem;
-    overflow-x: auto;
-    scrollbar-width: none;
-    padding-bottom: 0.25rem;
+    flex-wrap: wrap;
+    font-size: 0.9rem;
+    color: var(--ink-2);
   }
-  .gallery-item {
-    flex-shrink: 0;
-    height: 160px;
-    border: none;
-    padding: 0;
-    border-radius: 0.75rem;
-    overflow: hidden;
-    cursor: pointer;
-    background: none;
+  .rating {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
   }
-  .gallery-item img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    transition: 0.2s;
+  .rating strong {
+    font-weight: 500;
+    color: var(--ink);
   }
-  .gallery-item:hover img {
-    transform: scale(1.03);
+  .rcount {
+    color: var(--ink-3);
   }
+  .dot {
+    color: var(--ink-3);
+  }
+  .tier {
+    letter-spacing: 0.05em;
+  }
+  .tier span {
+    color: var(--line-strong);
+  }
+  .tier span.on {
+    color: var(--ink);
+  }
+  .tier i {
+    color: var(--ink-3);
+    font-style: normal;
+    margin: 0 0.1rem;
+  }
+  .lead-tag {
+    margin-top: 0.7rem;
+    font-family: var(--serif);
+    font-size: 1.05rem;
+    color: var(--ink-2);
+    max-width: 560px;
+  }
+  .head-actions {
+    display: flex;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+  }
+
+  /* FAKTY */
+  .facts {
+    display: flex;
+    gap: 1.4rem;
+    flex-wrap: wrap;
+    padding-top: 1.1rem;
+    padding-bottom: 0.4rem;
+    font-size: 0.85rem;
+    color: var(--ink-2);
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 0.5rem;
+  }
+  .facts a {
+    color: var(--ink-2);
+  }
+  .facts a:hover {
+    color: var(--accent);
+  }
+
+  /* LAYOUT */
   .layout {
-    padding-top: 2rem;
-    padding-bottom: 3rem;
+    padding-top: 1.75rem;
+    padding-bottom: 4.5rem;
     display: grid;
     grid-template-columns: 1fr minmax(0, 340px);
-    gap: 2rem;
+    gap: 2.5rem;
     align-items: start;
   }
   .block {
-    padding: 1.5rem;
-    margin-bottom: 1.5rem;
+    margin-bottom: 2.5rem;
   }
   .block h2 {
-    font-size: 1.05rem;
-    margin-bottom: 0.75rem;
+    font-size: 1.5rem;
+    margin-bottom: 1.1rem;
+    padding-bottom: 0.6rem;
+    border-bottom: 1px solid var(--line);
+  }
+  .muted {
+    color: var(--ink-3);
+    font-size: 0.9rem;
   }
   .desc {
-    color: var(--muted);
-    line-height: 1.7;
-    font-size: 0.9rem;
+    color: var(--ink-2);
+    line-height: 1.75;
+    font-size: 0.95rem;
     white-space: pre-line;
+  }
+
+  /* CENNIK */
+  .cat {
+    font-size: 0.78rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--accent);
+    margin: 1.4rem 0 0.6rem;
+  }
+  .cat:first-of-type {
+    margin-top: 0;
   }
   .svc-list {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
-  }
-  .svc-divider {
-    font-size: 0.75rem;
-    font-weight: 700;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin-top: 0.75rem;
   }
   .svc-row {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem;
-    padding: 0.6rem 0.75rem;
-    border-radius: 0.5rem;
-    background: var(--white);
-    border: 1px solid var(--border);
+    gap: 1rem;
+    padding: 0.85rem 0;
+    border-bottom: 1px solid var(--line);
   }
-  .svc-row.dimmed {
-    background: #f8fafc;
-    opacity: 0.55;
+  .svc-info {
+    flex: 1;
   }
   .svc-name {
-    font-size: 0.875rem;
-    font-weight: 600;
-    color: var(--navy);
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--ink);
   }
   .svc-dur {
-    font-size: 0.75rem;
-    color: var(--muted);
+    font-size: 0.78rem;
+    color: var(--ink-3);
+    margin-top: 0.1rem;
   }
   .svc-price {
-    font-size: 0.875rem;
-    font-weight: 700;
-    color: var(--v);
-    flex-shrink: 0;
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--ink);
+    white-space: nowrap;
   }
+  .svc-cta {
+    padding: 0.4rem 1rem;
+    font-size: 0.82rem;
+  }
+
+  /* ZESPÓŁ */
+  .team {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 1.25rem;
+  }
+  .member {
+    text-align: center;
+  }
+  .m-avatar {
+    width: 84px;
+    height: 84px;
+    border-radius: 50%;
+    overflow: hidden;
+    margin: 0 auto 0.6rem;
+    background: var(--blush);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--line);
+  }
+  .m-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .m-avatar span {
+    font-family: var(--serif);
+    font-size: 1.4rem;
+    color: var(--accent-d);
+  }
+  .m-name {
+    font-size: 0.9rem;
+    font-weight: 500;
+  }
+  .m-role {
+    font-size: 0.78rem;
+    color: var(--ink-3);
+  }
+
+  /* OPINIE */
+  .rev-summary {
+    display: flex;
+    gap: 2rem;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 1.5rem;
+  }
+  .rev-score {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.2rem;
+  }
+  .rev-score strong {
+    font-family: var(--serif);
+    font-size: 2.6rem;
+    font-weight: 500;
+    line-height: 1;
+  }
+  .rev-dist {
+    flex: 1;
+    min-width: 220px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+  .dist-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: 0.8rem;
+    color: var(--ink-3);
+  }
+  .dist-star {
+    width: 1.8rem;
+  }
+  .dist-bar {
+    flex: 1;
+    height: 6px;
+    background: var(--blush);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .dist-bar span {
+    display: block;
+    height: 100%;
+    background: var(--gold);
+  }
+  .dist-n {
+    width: 1.4rem;
+    text-align: right;
+  }
+  .rev-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1.1rem;
+  }
+  .rev {
+    border-top: 1px solid var(--line);
+    padding-top: 1.1rem;
+  }
+  .rev-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.35rem;
+  }
+  .rev-author {
+    font-weight: 500;
+    font-size: 0.92rem;
+  }
+  .rev-body {
+    font-size: 0.9rem;
+    color: var(--ink-2);
+    line-height: 1.65;
+  }
+
+  /* SIDEBAR */
   .side {
     display: flex;
     flex-direction: column;
     gap: 1.25rem;
+    position: sticky;
+    top: 80px;
+  }
+  .pad {
+    padding: 1.25rem;
   }
   .side h3 {
-    font-size: 0.95rem;
-    margin-bottom: 1rem;
+    font-size: 1.05rem;
+    margin-bottom: 0.9rem;
   }
   .contact {
     display: flex;
@@ -372,64 +702,121 @@
     display: flex;
     align-items: center;
     gap: 0.6rem;
-    font-size: 0.875rem;
-    color: var(--navy);
-    font-weight: 600;
+    font-size: 0.88rem;
+    color: var(--ink);
   }
   .c-link span:first-child {
-    font-size: 1.1rem;
+    font-size: 1.05rem;
   }
   .c-www {
-    color: var(--v);
+    color: var(--accent);
   }
   .c-addr {
     align-items: flex-start;
-    color: var(--muted);
-    font-weight: 400;
+    color: var(--ink-2);
   }
   .socials {
     margin-top: 1rem;
     padding-top: 1rem;
-    border-top: 1px solid var(--border);
+    border-top: 1px solid var(--line);
     display: flex;
     gap: 0.25rem;
     flex-wrap: wrap;
   }
   .socials a {
-    color: var(--v);
-    font-weight: 700;
+    color: var(--accent);
+    font-weight: 500;
     font-size: 0.85rem;
   }
-  .cta {
-    padding: 1.25rem;
-    background: var(--vl);
-    border-color: var(--v);
+  .hours {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
   }
-  .cta p {
-    font-size: 0.875rem;
-    font-weight: 700;
-    color: var(--vd);
-    margin-bottom: 0.75rem;
+  .hours p {
+    font-size: 0.88rem;
+    color: var(--ink-2);
   }
+  .map-card {
+    overflow: hidden;
+  }
+  .map {
+    height: 220px;
+  }
+  .map-foot {
+    padding: 0.75rem 1rem;
+  }
+  .map-foot a {
+    font-size: 0.82rem;
+    color: var(--accent);
+    font-weight: 500;
+  }
+
+  /* STICKY CTA — mobile (§7) */
+  .sticky-cta {
+    display: none;
+  }
+  .sticky-cta .bk-btn {
+    width: 100%;
+    justify-content: center;
+    padding: 0.85rem;
+  }
+
+  /* LIGHTBOX */
   .lightbox {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.9);
+    background: rgba(43, 39, 36, 0.92);
     z-index: 500;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
+    padding: 1.5rem;
   }
   .lightbox img {
-    max-width: 90vw;
+    max-width: 92vw;
     max-height: 90vh;
-    border-radius: 0.5rem;
+    border-radius: var(--r);
     object-fit: contain;
   }
+
   @media (max-width: 768px) {
     .layout {
       grid-template-columns: 1fr;
+    }
+    .side {
+      position: static;
+    }
+    .gallery {
+      height: 300px;
+    }
+    .head-actions .book {
+      display: none;
+    }
+    .sticky-cta {
+      display: block;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 120;
+      background: var(--card);
+      border-top: 1px solid var(--line);
+      padding: 0.7rem 1rem;
+    }
+  }
+  @media (max-width: 520px) {
+    .gallery {
+      grid-template-columns: 1fr;
+      height: auto;
+    }
+    .lead {
+      height: 240px;
+    }
+    .thumbs {
+      grid-template-rows: 80px;
+      grid-auto-rows: 80px;
     }
   }
 </style>
