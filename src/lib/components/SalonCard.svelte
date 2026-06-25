@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { SalonWithRelations } from '$lib/database.types';
-  let { salon }: { salon: SalonWithRelations } = $props();
+  let { salon, isNew = false }: { salon: SalonWithRelations; isNew?: boolean } = $props();
 
   const gallery = $derived((salon.gallery_assets ?? []).filter((p) => p.is_active !== false));
   const cover = $derived(
@@ -13,6 +13,7 @@
 
 <a href="/salon/{salon.id}" class="bk-card card">
   <div class="thumb">
+    {#if isNew}<span class="flag">Nowość</span>{/if}
     {#if cover}
       <img src={cover} alt={salon.name} loading="lazy" />
     {:else}
@@ -60,6 +61,19 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
+  }
+  .flag {
+    position: absolute;
+    top: 0.7rem;
+    left: 0.7rem;
+    z-index: 1;
+    background: var(--card);
+    color: var(--accent-d);
+    font-size: 0.7rem;
+    font-weight: 500;
+    padding: 0.2rem 0.6rem;
+    border-radius: 9999px;
+    border: 1px solid var(--line);
   }
   .placeholder {
     display: flex;

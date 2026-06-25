@@ -134,6 +134,14 @@
     <h2>Salony w pobliżu</h2>
     <div class="sec-tools">
       <span class="count">{countLabel}</span>
+      <a
+        class="bk-btn bk-btn-outline tool"
+        href="/szukaj{q || city || activeCat
+          ? `?${new URLSearchParams({ ...(q ? { q } : {}), ...(city ? { gdzie: city } : {}), ...(activeCat ? { cat: String(activeCat) } : {}) }).toString()}`
+          : ''}"
+      >
+        Więcej filtrów →
+      </a>
       <button class="bk-btn bk-btn-outline tool" onclick={() => (showMap = !showMap)}>
         {showMap ? '☰ Lista' : '🗺 Mapa'}
       </button>
