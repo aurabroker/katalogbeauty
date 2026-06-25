@@ -41,8 +41,8 @@
 
   const types = [
     { id: '', label: 'Wszystkie' },
-    { id: 'hiring', label: '💼 Zatrudnię' },
-    { id: 'looking', label: '🙋 Szukam pracy' }
+    { id: 'hiring', label: 'Zatrudnię' },
+    { id: 'looking', label: 'Szukam pracy' }
   ];
 </script>
 
@@ -69,12 +69,7 @@
   <div class="bk-container bar">
     <div class="types">
       {#each types as t}
-        <button
-          class="bk-btn"
-          class:on={filterType === t.id}
-          style="padding:.35rem .85rem;font-size:.8rem"
-          onclick={() => (filterType = t.id)}
-        >
+        <button class="bk-chip" class:active={filterType === t.id} onclick={() => (filterType = t.id)}>
           {t.label}
         </button>
       {/each}
@@ -178,21 +173,12 @@
   }
   .types {
     display: flex;
-    gap: 0.35rem;
-  }
-  .types .bk-btn {
-    background: #fff;
-    color: var(--v);
-    border: 1.5px solid var(--v);
-  }
-  .types .bk-btn.on {
-    background: var(--v);
-    color: #fff;
+    gap: 0.4rem;
   }
   .count {
     font-size: 0.8rem;
-    color: var(--muted);
-    font-weight: 600;
+    color: var(--ink-3);
+    font-weight: 500;
     margin-left: auto;
   }
   .grid {
