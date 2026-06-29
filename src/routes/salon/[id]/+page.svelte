@@ -41,6 +41,46 @@
 
   const tier = $derived(priceTier(services.map((s) => s.price_from)));
 
+  // JSON-LD BeautySalon (SEO / Google rich results)
+  const canonical = $derived(`${data.origin}/salon/${salon.id}`);
+  const salonLd = $derived.by(() => {
+    const ld: Record<string, unknown> = {
+      '@context': 'https://schema.org/',
+      '@type': 'BeautySalon',
+      name: salon.name,
+      url: canonical
+    };
+    const desc = salon.short_description || salon.description;
+    if (desc) ld.description = desc;
+    const img = photos[0]?.public_url || salon.cover_image_url;
+    if (img) ld.image = img;
+    if (salon.phone) ld.telephone = salon.phone;
+    if (salon.email) ld.email = salon.email;
+    if (salon.website_url) ld.sameAs = salon.website_url;
+    if (salon.city || salon.address_line) {
+      ld.address = {
+        '@type': 'PostalAddress',
+        streetAddress: salon.address_line ?? undefined,
+        postalCode: salon.postal_code ?? undefined,
+        addressLocality: salon.city ?? undefined,
+        addressRegion: salon.voivodeship ?? undefined,
+        addressCountry: 'PL'
+      };
+    }
+    if (salon.latitude != null && salon.longitude != null) {
+      ld.geo = { '@type': 'GeoCoordinates', latitude: salon.latitude, longitude: salon.longitude };
+    }
+    if (tier > 0) ld.priceRange = '$'.repeat(tier);
+    if (reviewCount > 0) {
+      ld.aggregateRating = {
+        '@type': 'AggregateRating',
+        ratingValue: Math.round(avgRating * 10) / 10,
+        reviewCount
+      };
+    }
+    return JSON.stringify(ld).replace(/</g, '\\u003c');
+  });
+
   // Oceny (na poziomie salonu — reviews.salon_id)
   const reviews = $derived(data.reviews);
   const reviewCount = $derived(reviews.length);
@@ -110,6 +150,8 @@
     name="description"
     content={salon.short_description || salon.description || `Profil salonu ${salon.name}`}
   />
+  <link rel="canonical" href={canonical} />
+  {@html `<scr` + `ipt type="application/ld+json">${salonLd}</scr` + `ipt>`}
 </svelte:head>
 
 <div class="bk-container">
