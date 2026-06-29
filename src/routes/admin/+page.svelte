@@ -44,6 +44,19 @@
   let salons = $state<Salon[]>([]);
   let users = $state<AdminUser[]>([]);
 
+  // filtr listy ogłoszeń (kolejka moderacji)
+  let jobFilter = $state<'all' | 'pending' | 'active'>('pending');
+  const jobFilters = [
+    { id: 'pending', label: '⏳ Do akceptacji' },
+    { id: 'active', label: '✅ Opublikowane' },
+    { id: 'all', label: 'Wszystkie' }
+  ] as const;
+  const visibleJobs = $derived(
+    jobs.filter((j) =>
+      jobFilter === 'pending' ? j.status !== 'active' : jobFilter === 'active' ? j.status === 'active' : true
+    )
+  );
+
   // inline panel aktywacji ogłoszenia
   let payJobId = $state<string | null>(null);
   let payPrice = $state('50');
@@ -117,6 +130,22 @@
     jobs = jobs.map((x) => (x.id === payJobId ? (data as JobListing) : x));
     payJobId = null;
     toast('Ogłoszenie opłacone i aktywne ✓', 'success');
+    void refreshStats();
+  }
+
+  // Akceptacja bezpłatnego ogłoszenia „Szukam pracy" (moderacja przed publikacją)
+  async function approveFree(j: JobListing) {
+    const days = 60;
+    const expires = new Date(Date.now() + days * 86400000).toISOString();
+    const { data, error } = await sb
+      .from('job_listings')
+      .update({ status: 'active', payment_status: 'paid', paid_at: new Date().toISOString(), price_pln: 0, expires_at: expires })
+      .eq('id', j.id)
+      .select()
+      .single();
+    if (error || !data) return toast('Błąd: ' + (error?.message ?? 'brak danych'), 'error');
+    jobs = jobs.map((x) => (x.id === j.id ? (data as JobListing) : x));
+    toast('Ogłoszenie zaakceptowane i opublikowane ✓', 'success');
     void refreshStats();
   }
 
@@ -252,10 +281,15 @@
       {/if}
 
     {:else if activeTab === 'jobs'}
-      {#if !jobs.length}
-        <p class="empty">Brak ogłoszeń.</p>
+      <div class="subfilter">
+        {#each jobFilters as f}
+          <button class:on={jobFilter === f.id} onclick={() => (jobFilter = f.id)}>{f.label}</button>
+        {/each}
+      </div>
+      {#if !visibleJobs.length}
+        <p class="empty">Brak ogłoszeń w tym widoku.</p>
       {:else}
-        {#each jobs as j (j.id)}
+        {#each visibleJobs as j (j.id)}
           <div class="bk-card row">
             <div class="row-main">
               <div class="badges">
@@ -271,7 +305,11 @@
             </div>
             <div class="actions">
               {#if j.status !== 'active' || j.payment_status !== 'paid'}
-                <button class="bk-btn bk-btn-primary sm" onclick={() => openPay(j)}>💳 Opłać i aktywuj</button>
+                {#if j.type === 'looking'}
+                  <button class="bk-btn bk-btn-primary sm" onclick={() => approveFree(j)}>✅ Zaakceptuj (bezpłatnie)</button>
+                {:else}
+                  <button class="bk-btn bk-btn-primary sm" onclick={() => openPay(j)}>💳 Opłać i aktywuj</button>
+                {/if}
               {:else}
                 <button class="bk-btn bk-btn-outline sm" onclick={() => extendJob(j, 30)}>+30 dni</button>
                 <button class="bk-btn bk-btn-outline sm" onclick={() => hideJob(j)}>Ukryj</button>
@@ -375,6 +413,27 @@
   .tabs button.on {
     background: var(--v);
     color: #fff;
+  }
+  .subfilter {
+    display: flex;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+  }
+  .subfilter button {
+    padding: 0.35rem 0.8rem;
+    border: 1px solid var(--border);
+    background: #fff;
+    color: var(--muted);
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 0.76rem;
+    cursor: pointer;
+  }
+  .subfilter button.on {
+    background: var(--v);
+    color: #fff;
+    border-color: var(--v);
   }
   .cards {
     display: grid;
