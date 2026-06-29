@@ -21,7 +21,7 @@
   </div>
 
   <div>
-    <h2>{job.title}</h2>
+    <h2><a href="/jobs/{job.id}" class="title-link">{job.title}</a></h2>
     <p class="loc">📍 {job.city}{job.voivodeship ? `, ${job.voivodeship}` : ''}</p>
   </div>
 
@@ -80,6 +80,13 @@
   h2 {
     font-size: 1rem;
     margin-bottom: 0.25rem;
+  }
+  .title-link {
+    color: inherit;
+  }
+  .title-link:hover {
+    color: var(--accent);
+    text-decoration: underline;
   }
   .loc {
     font-size: 0.82rem;

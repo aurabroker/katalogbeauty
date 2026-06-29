@@ -3,7 +3,7 @@ import { sb } from '$lib/supabase';
 import { error } from '@sveltejs/kit';
 import type { SalonWithRelations, Staff, Review, ServiceCategory } from '$lib/database.types';
 
-export const load: PageLoad = async ({ params }) => {
+export const load: PageLoad = async ({ params, url }) => {
   const [salonRes, staffRes, reviewsRes, catsRes] = await Promise.all([
     sb.from('salons').select('*,gallery_assets(*),services(*)').eq('id', params.id).maybeSingle(),
     sb
@@ -26,6 +26,7 @@ export const load: PageLoad = async ({ params }) => {
   }
 
   return {
+    origin: url.origin,
     salon: salonRes.data as unknown as SalonWithRelations,
     team: (staffRes.data ?? []) as Pick<
       Staff,
