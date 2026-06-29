@@ -2,11 +2,11 @@
   import { sb } from '$lib/supabase';
   import { auth } from '$lib/stores/auth.svelte';
   import { toast } from '$lib/stores/toast.svelte';
-  import { salaryLabel, timeAgo } from '$lib/utils';
+  import { salaryLabel, timeAgo, isValidEmail, isValidPhone, VOIVODESHIPS } from '$lib/utils';
   import AuthForm from '$lib/components/AuthForm.svelte';
   import Spinner from '$lib/components/Spinner.svelte';
   import Footer from '$lib/components/Footer.svelte';
-  import type { JobListing, Salon, JobType } from '$lib/database.types';
+  import type { Database, JobListing, Salon, JobType, JobStatus, Employment } from '$lib/database.types';
 
   interface AdminUser {
     id: string;
@@ -61,6 +61,78 @@
   let payJobId = $state<string | null>(null);
   let payPrice = $state('50');
   let payDays = $state('30');
+
+  // dodawanie ogłoszenia przez admina
+  interface NewJobForm {
+    type: JobType;
+    title: string;
+    city: string;
+    voivodeship: string;
+    description: string;
+    salary_from: string;
+    salary_to: string;
+    employment: Employment | '';
+    phone: string;
+    email: string;
+    status: JobStatus;
+    price: string;
+    days: string;
+  }
+  function emptyJobForm(): NewJobForm {
+    return {
+      type: 'hiring', title: '', city: '', voivodeship: '', description: '',
+      salary_from: '', salary_to: '', employment: '', phone: '', email: '',
+      status: 'active', price: '0', days: '30'
+    };
+  }
+  let showNewJob = $state(false);
+  let savingNew = $state(false);
+  let newJob = $state<NewJobForm>(emptyJobForm());
+
+  function toggleNewJob() {
+    showNewJob = !showNewJob;
+    if (showNewJob) newJob = emptyJobForm();
+  }
+
+  async function createJob() {
+    if (!auth.user) return;
+    if (!newJob.title.trim() || !newJob.city.trim()) return toast('Wypełnij stanowisko i miasto', 'error');
+    if (!newJob.phone.trim() || !newJob.email.trim()) return toast('Telefon i e-mail są obowiązkowe', 'error');
+    if (!isValidPhone(newJob.phone)) return toast('Podaj poprawny numer telefonu (9 cyfr)', 'error');
+    if (!isValidEmail(newJob.email)) return toast('Podaj poprawny adres e-mail', 'error');
+
+    const active = newJob.status === 'active';
+    const price = parseFloat(newJob.price) || 0;
+    const days = parseInt(newJob.days, 10) || 30;
+    const payload = {
+      owner_id: auth.user.id,
+      type: newJob.type,
+      title: newJob.title.trim(),
+      city: newJob.city.trim(),
+      voivodeship: newJob.voivodeship || null,
+      description: newJob.description.trim() || null,
+      salary_from: parseFloat(newJob.salary_from) || null,
+      salary_to: parseFloat(newJob.salary_to) || null,
+      employment: newJob.employment || null,
+      phone: newJob.phone.trim(),
+      email: newJob.email.trim(),
+      status: newJob.status,
+      payment_status: active ? 'paid' : 'unpaid',
+      paid_at: active ? new Date().toISOString() : null,
+      price_pln: active ? price : null,
+      expires_at: active ? new Date(Date.now() + days * 86400000).toISOString() : null
+    } satisfies Database['public']['Tables']['job_listings']['Insert'];
+
+    savingNew = true;
+    const { data, error } = await sb.from('job_listings').insert(payload).select().single();
+    savingNew = false;
+    if (error || !data) return toast('Błąd: ' + (error?.message ?? 'brak danych'), 'error');
+    jobs = [data as JobListing, ...jobs];
+    showNewJob = false;
+    newJob = emptyJobForm();
+    toast('Ogłoszenie dodane ✓', 'success');
+    void refreshStats();
+  }
 
   const typeLabel: Record<JobType, string> = { hiring: '💼 Zatrudnię', looking: '🙋 Szukam pracy' };
 
@@ -281,11 +353,66 @@
       {/if}
 
     {:else if activeTab === 'jobs'}
-      <div class="subfilter">
-        {#each jobFilters as f}
-          <button class:on={jobFilter === f.id} onclick={() => (jobFilter = f.id)}>{f.label}</button>
-        {/each}
+      <div class="jobs-head">
+        <div class="subfilter">
+          {#each jobFilters as f}
+            <button class:on={jobFilter === f.id} onclick={() => (jobFilter = f.id)}>{f.label}</button>
+          {/each}
+        </div>
+        <button class="bk-btn bk-btn-primary sm" onclick={toggleNewJob}>
+          {showNewJob ? '× Anuluj' : '+ Dodaj ogłoszenie'}
+        </button>
       </div>
+
+      {#if showNewJob}
+        <div class="bk-card newjob">
+          <h3 class="newjob-title">Nowe ogłoszenie (dodaje administrator)</h3>
+          <div class="nj-grid">
+            <div class="nj-field">
+              <span class="bk-label">Typ *</span>
+              <div style="display:flex;gap:.5rem">
+                <button class="type-btn" class:on={newJob.type === 'hiring'} onclick={() => (newJob.type = 'hiring')}>💼 Zatrudnię</button>
+                <button class="type-btn" class:on={newJob.type === 'looking'} onclick={() => (newJob.type = 'looking')}>🙋 Szukam pracy</button>
+              </div>
+            </div>
+            <div class="nj-field nj-full"><label class="bk-label" for="nj-title">Stanowisko *</label><input id="nj-title" class="bk-input" bind:value={newJob.title} placeholder="Fryzjer, Kosmetolog..." /></div>
+            <div class="nj-field"><label class="bk-label" for="nj-city">Miasto *</label><input id="nj-city" class="bk-input" bind:value={newJob.city} placeholder="Warszawa" /></div>
+            <div class="nj-field"><label class="bk-label" for="nj-voi">Województwo</label>
+              <select id="nj-voi" class="bk-input" bind:value={newJob.voivodeship}>{#each VOIVODESHIPS as v}<option value={v}>{v}</option>{/each}</select>
+            </div>
+            <div class="nj-field nj-full"><label class="bk-label" for="nj-desc">Opis</label><textarea id="nj-desc" class="bk-input" rows="3" style="resize:vertical" bind:value={newJob.description}></textarea></div>
+            <div class="nj-field"><label class="bk-label" for="nj-sf">Wynagrodzenie od (zł)</label><input id="nj-sf" type="number" min="0" class="bk-input" bind:value={newJob.salary_from} /></div>
+            <div class="nj-field"><label class="bk-label" for="nj-st">Wynagrodzenie do (zł)</label><input id="nj-st" type="number" min="0" class="bk-input" bind:value={newJob.salary_to} /></div>
+            <div class="nj-field"><label class="bk-label" for="nj-emp">Forma zatrudnienia</label>
+              <select id="nj-emp" class="bk-input" bind:value={newJob.employment}>
+                <option value="">— nie podaję —</option>
+                <option value="uop">Umowa o pracę</option>
+                <option value="b2b">B2B</option>
+                <option value="zlecenie">Umowa zlecenie</option>
+                <option value="dowolna">Dowolna</option>
+              </select>
+            </div>
+            <div class="nj-field"><label class="bk-label" for="nj-status">Status</label>
+              <select id="nj-status" class="bk-input" bind:value={newJob.status}>
+                <option value="active">✅ Opublikowane od razu</option>
+                <option value="draft">📝 Szkic (ukryte)</option>
+                <option value="closed">🔒 Zamknięte</option>
+              </select>
+            </div>
+            <div class="nj-field"><label class="bk-label" for="nj-phone">Telefon *</label><input id="nj-phone" type="tel" class="bk-input" bind:value={newJob.phone} placeholder="+48 600 000 000" /></div>
+            <div class="nj-field"><label class="bk-label" for="nj-email">Email *</label><input id="nj-email" type="email" class="bk-input" bind:value={newJob.email} placeholder="kontakt@email.pl" /></div>
+            {#if newJob.status === 'active'}
+              <div class="nj-field"><label class="bk-label" for="nj-price">Cena (zł)</label><input id="nj-price" type="number" min="0" class="bk-input" bind:value={newJob.price} /></div>
+              <div class="nj-field"><label class="bk-label" for="nj-days">Ważność (dni)</label><input id="nj-days" type="number" min="1" class="bk-input" bind:value={newJob.days} /></div>
+            {/if}
+          </div>
+          <div class="nj-actions">
+            <button class="bk-btn bk-btn-primary sm" disabled={savingNew} onclick={createJob}>💾 {savingNew ? 'Zapisuję...' : 'Dodaj ogłoszenie'}</button>
+            <button class="bk-btn bk-btn-outline sm" onclick={toggleNewJob}>Anuluj</button>
+          </div>
+        </div>
+      {/if}
+
       {#if !visibleJobs.length}
         <p class="empty">Brak ogłoszeń w tym widoku.</p>
       {:else}
@@ -414,11 +541,67 @@
     background: var(--v);
     color: #fff;
   }
+  .jobs-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+  }
   .subfilter {
     display: flex;
     gap: 0.4rem;
     flex-wrap: wrap;
+  }
+  .newjob {
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1.25rem;
+  }
+  .newjob-title {
+    font-size: 0.95rem;
     margin-bottom: 1rem;
+  }
+  .nj-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.85rem;
+  }
+  .nj-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  .nj-full {
+    grid-column: 1 / -1;
+  }
+  .type-btn {
+    flex: 1;
+    padding: 0.5rem;
+    border: 1.5px solid var(--border);
+    border-radius: 0.6rem;
+    font-weight: 700;
+    font-size: 0.82rem;
+    cursor: pointer;
+    background: #fff;
+    color: var(--muted);
+  }
+  .type-btn.on {
+    background: var(--v);
+    color: #fff;
+    border-color: var(--v);
+  }
+  .nj-actions {
+    display: flex;
+    gap: 0.6rem;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+  }
+  @media (max-width: 560px) {
+    .nj-grid {
+      grid-template-columns: 1fr;
+    }
   }
   .subfilter button {
     padding: 0.35rem 0.8rem;
