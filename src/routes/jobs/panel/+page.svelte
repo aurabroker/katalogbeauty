@@ -2,7 +2,7 @@
   import { sb } from '$lib/supabase';
   import { auth } from '$lib/stores/auth.svelte';
   import { toast } from '$lib/stores/toast.svelte';
-  import { VOIVODESHIPS } from '$lib/utils';
+  import { VOIVODESHIPS, isValidEmail, isValidPhone } from '$lib/utils';
   import AuthForm from '$lib/components/AuthForm.svelte';
   import Spinner from '$lib/components/Spinner.svelte';
   import Footer from '$lib/components/Footer.svelte';
@@ -39,6 +39,14 @@
   }
   const typeLabel: Record<JobType, string> = { hiring: '💼 Zatrudnię', looking: '🙋 Szukam pracy' };
   const typeColor: Record<JobType, string> = { hiring: 'var(--accent)', looking: 'var(--ink)' };
+
+  // §9.5: „Szukam pracy" jest bezpłatne (publikacja po akceptacji admina),
+  // „Zatrudnię" jest płatne (aktywacja po opłaceniu przez admina).
+  const publishNote = $derived(
+    form.type === 'looking'
+      ? '🙋 Ogłoszenie „Szukam pracy" jest bezpłatne. Po zapisaniu trafia do akceptacji administratora — zostanie opublikowane po zatwierdzeniu.'
+      : '💼 Publikacja ogłoszenia „Zatrudnię" jest płatna. Zapisz je jako szkic — po opłaceniu administrator aktywuje je i ustawi termin ważności.'
+  );
 
   function emptyForm(): JobForm {
     return {
@@ -95,8 +103,16 @@
       toast('Wypełnij stanowisko i miasto', 'error');
       return;
     }
-    if (!form.phone.trim() && !form.email.trim()) {
-      toast('Podaj telefon lub email', 'error');
+    if (!form.phone.trim() || !form.email.trim()) {
+      toast('Telefon i e-mail są obowiązkowe', 'error');
+      return;
+    }
+    if (!isValidPhone(form.phone)) {
+      toast('Podaj poprawny numer telefonu (9 cyfr)', 'error');
+      return;
+    }
+    if (!isValidEmail(form.email)) {
+      toast('Podaj poprawny adres e-mail', 'error');
       return;
     }
     const payload = {
@@ -255,10 +271,10 @@
             </div>
 
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
-              <div><label class="bk-label" for="jf-phone">Telefon</label><input id="jf-phone" type="tel" class="bk-input" bind:value={form.phone} placeholder="+48 600 000 000" /></div>
-              <div><label class="bk-label" for="jf-email">Email</label><input id="jf-email" type="email" class="bk-input" bind:value={form.email} placeholder="kontakt@email.pl" /></div>
+              <div><label class="bk-label" for="jf-phone">Telefon *</label><input id="jf-phone" type="tel" class="bk-input" bind:value={form.phone} placeholder="+48 600 000 000" /></div>
+              <div><label class="bk-label" for="jf-email">Email *</label><input id="jf-email" type="email" class="bk-input" bind:value={form.email} placeholder="kontakt@email.pl" /></div>
             </div>
-            <p style="font-size:.72rem;color:var(--muted);margin-top:-.5rem">Podaj przynajmniej jedno z pól kontaktowych.</p>
+            <p style="font-size:.72rem;color:var(--muted);margin-top:-.5rem">Telefon i e-mail są obowiązkowe — oba pola muszą być wypełnione.</p>
 
             <div>
               <label class="bk-label" for="jf-status">Status</label>
@@ -267,9 +283,7 @@
                 <option value="draft">Szkic / zgłoś do publikacji</option>
                 <option value="closed">Zamknięte</option>
               </select>
-              <p style="font-size:.72rem;color:var(--muted);margin-top:.4rem">
-                📢 Publikacja ogłoszenia jest płatna. Zapisz je jako <strong>szkic</strong> — po opłaceniu administrator aktywuje je i ustawi termin ważności.
-              </p>
+              <p style="font-size:.72rem;color:var(--muted);margin-top:.4rem">{publishNote}</p>
             </div>
 
             <div style="display:flex;gap:.65rem;flex-wrap:wrap;padding-top:.25rem;border-top:1px solid var(--border)">

@@ -37,6 +37,44 @@
 
   let uploading = $state(false);
 
+  // pobieranie danych firmy z rejestru (GUS REGON / Wykaz podatników VAT)
+  let fetchingGus = $state(false);
+  async function fetchCompany() {
+    const nip = form.nip.replace(/\D/g, '');
+    const regon = form.regon.replace(/\D/g, '');
+    if (nip.length !== 10 && regon.length < 9) {
+      toast('Wpisz NIP (10 cyfr) lub REGON, aby pobrać dane', 'error');
+      return;
+    }
+    fetchingGus = true;
+    try {
+      const params = new URLSearchParams();
+      if (nip.length === 10) params.set('nip', nip);
+      if (regon.length >= 9) params.set('regon', regon);
+      const res = await fetch(`/api/regon?${params}`);
+      if (!res.ok) {
+        const e = await res.json().catch(() => ({}));
+        toast(e?.message || 'Nie znaleziono firmy', 'error');
+        return;
+      }
+      const c = await res.json();
+      if (c.name) form.name = c.name;
+      if (c.street) form.street = c.street;
+      if (c.postal_code) form.postal_code = c.postal_code;
+      if (c.city) form.city = c.city;
+      if (c.regon) form.regon = c.regon;
+      if (c.nip) form.nip = c.nip;
+      if (c.voivodeship && (VOIVODESHIPS as readonly string[]).includes(c.voivodeship)) {
+        form.voivodeship = c.voivodeship;
+      }
+      toast('Dane firmy pobrane ✓', 'success');
+    } catch {
+      toast('Błąd połączenia z rejestrem firm', 'error');
+    } finally {
+      fetchingGus = false;
+    }
+  }
+
   function emptyForm() {
     return {
       name: '', tagline: '', description: '', status: 'active',
@@ -419,6 +457,14 @@
         <div class="fg-2">
           <div class="fc"><label class="bk-label" for="f-nip">NIP</label><input id="f-nip" class="bk-input" bind:value={form.nip} placeholder="0000000000" /></div>
           <div class="fc"><label class="bk-label" for="f-regon">REGON</label><input id="f-regon" class="bk-input" bind:value={form.regon} placeholder="000000000" /></div>
+        </div>
+        <div style="margin-top:.75rem">
+          <button class="bk-btn bk-btn-outline" style="font-size:.82rem" disabled={fetchingGus} onclick={fetchCompany}>
+            {fetchingGus ? '⏳ Pobieram dane…' : '🔍 Pobierz dane z rejestru REGON'}
+          </button>
+          <p style="font-size:.72rem;color:var(--muted);margin-top:.4rem">
+            Wpisz NIP i pobierz nazwę oraz adres firmy z bazy GUS / Wykazu podatników VAT — pola uzupełnią się automatycznie.
+          </p>
         </div>
 
         {@render section('Godziny otwarcia')}

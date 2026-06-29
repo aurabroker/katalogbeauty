@@ -34,6 +34,20 @@ export function salaryLabel(from: number | null, to: number | null): string {
   return to && to !== from ? `${from}–${to} zł` : `od ${from} zł`;
 }
 
+/** Walidacja adresu e-mail (proste sprawdzenie wystarczające dla formularzy) */
+export function isValidEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+}
+
+/** Walidacja telefonu (PL): po odrzuceniu spacji/myślników i prefiksu +48/0 oczekuje 9 cyfr */
+export function isValidPhone(phone: string): boolean {
+  const digits = phone
+    .replace(/[\s\-().]/g, '')
+    .replace(/^\+?48/, '')
+    .replace(/^0/, '');
+  return /^\d{9}$/.test(digits);
+}
+
 /** Forma zatrudnienia → etykieta */
 export const EMPLOYMENT_LABELS: Record<Employment, string> = {
   uop: 'Umowa o pracę',
