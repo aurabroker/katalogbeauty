@@ -5,7 +5,7 @@
 
 <footer class="bk-footer">
   <span>{#if children}{@render children()}{:else}© 2026 BeautyKatalog by Aura Consulting{/if}</span>
-  <span class="legal"><a href="/regulamin">Regulamin</a></span>
+  <span class="legal"><a href="/regulamin">Regulamin</a> · <a href="/polityka-prywatnosci">Polityka Prywatności</a></span>
 </footer>
 
 <style>

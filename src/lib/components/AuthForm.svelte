@@ -16,6 +16,8 @@
   let lPass = $state('');
   let rEmail = $state('');
   let rPass = $state('');
+  let rAcceptTerms = $state(false);
+  let rMarketing = $state(false);
   let busy = $state(false);
 
   const turnstileEnabled = !!env.PUBLIC_TURNSTILE_SITE_KEY;
@@ -52,13 +54,23 @@
       toast('Podaj poprawny email i hasło (min. 8 znaków)', 'error');
       return;
     }
+    if (!rAcceptTerms) {
+      toast('Zaakceptuj Regulamin i Politykę Prywatności', 'error');
+      return;
+    }
     const guard = captchaGuard();
     if (turnstileEnabled && !guard) return;
     busy = true;
     const { error } = await sb.auth.signUp({
       email: rEmail.trim(),
       password: rPass,
-      options: { ...guard }
+      options: {
+        ...guard,
+        data: {
+          accepted_terms_at: new Date().toISOString(),
+          marketing_consent: rMarketing
+        }
+      }
     });
     busy = false;
     turnstile?.reset();
@@ -120,6 +132,16 @@
           <label class="bk-label" for="r-pass">Hasło (min. 8 znaków)</label>
           <input id="r-pass" type="password" class="bk-input" placeholder="••••••••" bind:value={rPass} />
         </div>
+
+        <label class="consent">
+          <input type="checkbox" bind:checked={rAcceptTerms} />
+          <span>Akceptuję <a href="/regulamin" target="_blank" rel="noopener">Regulamin</a> oraz <a href="/polityka-prywatnosci" target="_blank" rel="noopener">Politykę Prywatności</a> (RODO). *</span>
+        </label>
+        <label class="consent">
+          <input type="checkbox" bind:checked={rMarketing} />
+          <span>Wyrażam zgodę na otrzymywanie informacji marketingowych drogą e-mail (opcjonalnie).</span>
+        </label>
+
         <button class="bk-btn bk-btn-primary" style="width:100%" disabled={busy} onclick={doRegister}>
           {busy ? 'Tworzenie konta...' : 'Utwórz konto'}
         </button>
@@ -174,6 +196,24 @@
   }
   .fg:last-of-type {
     margin-bottom: 1.25rem;
+  }
+  .consent {
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-start;
+    font-size: 0.78rem;
+    color: var(--muted);
+    line-height: 1.45;
+    margin-bottom: 0.75rem;
+    cursor: pointer;
+  }
+  .consent input {
+    margin-top: 0.15rem;
+    flex-shrink: 0;
+  }
+  .consent a {
+    color: var(--v);
+    text-decoration: underline;
   }
   .reset {
     margin-top: 1rem;

@@ -127,7 +127,7 @@
       <li>Administratorem danych osobowych Użytkowników jest Operator. Dane przetwarzane są w celu świadczenia usług, obsługi Kont, publikacji Ogłoszeń oraz w celach kontaktowych i rozliczeniowych.</li>
       <li>Dane kontaktowe zamieszczone w Ogłoszeniu (telefon, e-mail) są publikowane i widoczne dla innych Użytkowników — ich podanie jest dobrowolne, lecz niezbędne do publikacji Ogłoszenia.</li>
       <li>Użytkownikowi przysługują prawa: dostępu, sprostowania, usunięcia, ograniczenia, przenoszenia danych oraz sprzeciwu, a także prawo wniesienia skargi do Prezesa UODO.</li>
-      <li>Szczegółowe zasady przetwarzania danych określa <strong>Polityka Prywatności</strong> [link do uzupełnienia].</li>
+      <li>Szczegółowe zasady przetwarzania danych określa <strong><a href="/polityka-prywatnosci">Polityka Prywatności</a></strong>.</li>
     </ol>
   </section>
 
