@@ -381,6 +381,80 @@ export interface Database {
         Update: Partial<Database['public']['Tables']['training_enrollments']['Insert']>;
         Relationships: [];
       };
+      candidate_profiles: {
+        Row: {
+          user_id: string;
+          full_name: string | null;
+          headline: string | null;
+          bio: string | null;
+          experience_years: number | null;
+          skills: string[];
+          phone: string | null;
+          city: string | null;
+          portfolio_url: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          full_name?: string | null;
+          headline?: string | null;
+          bio?: string | null;
+          experience_years?: number | null;
+          skills?: string[];
+          phone?: string | null;
+          city?: string | null;
+          portfolio_url?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['candidate_profiles']['Insert']>;
+        Relationships: [];
+      };
+      job_applications: {
+        Row: {
+          id: string;
+          job_id: string;
+          applicant_user_id: string;
+          applicant_name: string | null;
+          applicant_email: string | null;
+          headline: string | null;
+          experience_years: number | null;
+          skills: string[];
+          message: string | null;
+          stage: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          job_id: string;
+          applicant_user_id: string;
+          applicant_name?: string | null;
+          applicant_email?: string | null;
+          headline?: string | null;
+          experience_years?: number | null;
+          skills?: string[];
+          message?: string | null;
+          stage?: string;
+          created_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['job_applications']['Insert']>;
+        Relationships: [];
+      };
+      saved_salons: {
+        Row: {
+          user_id: string;
+          salon_id: string;
+          created_at: string;
+        };
+        Insert: {
+          user_id: string;
+          salon_id: string;
+          created_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['saved_salons']['Insert']>;
+        Relationships: [];
+      };
     };
     Views: Record<never, never>;
     Functions: {
@@ -415,6 +489,9 @@ export type Review = Database['public']['Tables']['reviews']['Row'];
 export type ServiceCategory = Database['public']['Tables']['service_categories']['Row'];
 export type Training = Database['public']['Tables']['trainings']['Row'];
 export type TrainingEnrollment = Database['public']['Tables']['training_enrollments']['Row'];
+export type CandidateProfile = Database['public']['Tables']['candidate_profiles']['Row'];
+export type JobApplication = Database['public']['Tables']['job_applications']['Row'];
+export type SavedSalon = Database['public']['Tables']['saved_salons']['Row'];
 
 /** Salon z dołączonymi relacjami (jak w zapytaniach z `select(...)`) */
 export type SalonWithRelations = Salon & {

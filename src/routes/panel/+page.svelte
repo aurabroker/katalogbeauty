@@ -2,12 +2,46 @@
   import { sb } from '$lib/supabase';
   import { auth } from '$lib/stores/auth.svelte';
   import { toast } from '$lib/stores/toast.svelte';
-  import { slug, VOIVODESHIPS, priceLabel, hoursToText } from '$lib/utils';
+  import { slug, VOIVODESHIPS, priceLabel, hoursToText, timeAgo } from '$lib/utils';
   import AuthForm from '$lib/components/AuthForm.svelte';
   import Modal from '$lib/components/Modal.svelte';
   import Spinner from '$lib/components/Spinner.svelte';
   import PanelShell from '$lib/components/PanelShell.svelte';
-  import type { Database, SalonWithRelations, Service, GalleryAsset, Json } from '$lib/database.types';
+  import type { Database, SalonWithRelations, Service, GalleryAsset, Json, JobApplication } from '$lib/database.types';
+
+  type AppVM = JobApplication & { job_title: string };
+  let applications = $state<AppVM[]>([]);
+  let expandedApp = $state<string | null>(null);
+
+  const APP_STAGES = [
+    { id: 'sent', label: 'Wysłano' },
+    { id: 'review', label: 'W przeglądzie' },
+    { id: 'interview', label: 'Rozmowa' },
+    { id: 'offer', label: 'Oferta' },
+    { id: 'rejected', label: 'Odrzucono' }
+  ];
+  function stageLabel(s: string): string {
+    return APP_STAGES.find((x) => x.id === s)?.label ?? s;
+  }
+
+  async function loadApplications(uid: string) {
+    const { data } = await sb
+      .from('job_applications')
+      .select('*, job:job_listings!inner(id,title,owner_id)')
+      .eq('job.owner_id', uid)
+      .order('created_at', { ascending: false });
+    applications = ((data ?? []) as unknown as (JobApplication & { job: { title: string } | null })[]).map((a) => ({
+      ...a,
+      job_title: a.job?.title ?? 'Ogłoszenie'
+    }));
+  }
+
+  async function setStage(app: AppVM, stage: string) {
+    const { error } = await sb.from('job_applications').update({ stage }).eq('id', app.id);
+    if (error) return toast('Błąd: ' + error.message, 'error');
+    applications = applications.map((a) => (a.id === app.id ? { ...a, stage } : a));
+    toast('Status zaktualizowany ✓', 'success');
+  }
 
   const MEDIA_BUCKET = 'salon-media';
 
@@ -19,7 +53,9 @@
 
   let activeTab = $state('pulpit');
 
-  const navGroups = [
+  const newAppsCount = $derived(applications.filter((a) => a.stage === 'sent').length);
+
+  const navGroups = $derived([
     {
       items: [
         { id: 'pulpit', label: 'Pulpit', icon: 'grid' },
@@ -30,19 +66,23 @@
     },
     {
       label: 'Rekrutacja',
-      items: [{ id: 'jobs', label: 'Oferty pracy', icon: 'briefcase', href: '/jobs/panel' }]
+      items: [
+        { id: 'kandydaci', label: 'Kandydaci', icon: 'users', badge: newAppsCount || undefined },
+        { id: 'jobs', label: 'Oferty pracy', icon: 'briefcase', href: '/jobs/panel' }
+      ]
     },
     {
       label: 'Konto',
       items: [{ id: 'abonament', label: 'Abonament', icon: 'crown' }]
     }
-  ];
+  ]);
 
   const TITLES: Record<string, string> = {
     pulpit: 'Pulpit',
     salon: 'Profil firmy',
     services: 'Usługi i cennik',
     photos: 'Galeria',
+    kandydaci: 'Kandydaci',
     abonament: 'Abonament'
   };
   const panelTitle = $derived(TITLES[activeTab] ?? 'Panel salonu');
@@ -70,6 +110,25 @@
           ? 'Wstrzymany'
           : 'Szkic'
   );
+
+  // Onboarding salonu (stepper) — status liczony z realnych danych
+  const onboardingComplete = $derived(!!currentSalon && services.length > 0 && photos.length > 0);
+  const onboardingPct = $derived(
+    Math.round(([!!currentSalon, services.length > 0, photos.length > 0].filter(Boolean).length / 3) * 100)
+  );
+  const onbSteps = $derived.by(() => {
+    const s1 = !!currentSalon;
+    const s2 = services.length > 0;
+    const s3 = photos.length > 0;
+    const steps = [
+      { label: 'Dane firmy', hint: s1 ? 'Gotowe' : 'Nazwa, adres, kontakt', done: s1, tab: 'salon' },
+      { label: 'Usługi i cennik', hint: s2 ? `${services.length} w cenniku` : 'Dodaj pierwszą usługę', done: s2, tab: 'services' },
+      { label: 'Galeria', hint: s3 ? `${photos.length} zdjęć` : 'Dodaj zdjęcia', done: s3, tab: 'photos' },
+      { label: 'Pakiet', hint: 'Wybierz abonament', done: false, tab: 'abonament' }
+    ];
+    const firstTodo = steps.findIndex((x) => !x.done);
+    return steps.map((x, i) => ({ ...x, active: i === firstTodo }));
+  });
 
   const plans = [
     { name: 'Free', price: '0 zł', per: '/mies.', featured: false, cta: 'Twój pakiet', feats: ['Profil w katalogu', 'Do 5 zabiegów', 'Podstawowe statystyki'] },
@@ -166,6 +225,7 @@
     if (!uid || loadedFor === uid) return;
     loadedFor = uid;
     loadSalon(uid);
+    void loadApplications(uid);
   });
 
   async function loadSalon(uid: string) {
@@ -462,6 +522,26 @@
     {:else if activeTab === 'pulpit'}
       <!-- PULPIT -->
       <div class="dash">
+        {#if !onboardingComplete}
+          <div class="onb">
+            <div class="onb-head">
+              <div>
+                <span class="onb-eyebrow">Onboarding</span>
+                <h2 class="onb-h">Uruchom salon w 4 krokach</h2>
+              </div>
+              <span class="onb-pct">{onboardingPct}%</span>
+            </div>
+            <div class="onb-steps">
+              {#each onbSteps as s, i}
+                <button type="button" class="onb-step" class:done={s.done} class:active={s.active} onclick={() => (activeTab = s.tab)}>
+                  <span class="onb-num">{s.done ? '✓' : i + 1}</span>
+                  <span class="onb-slabel">{s.label}</span>
+                  <span class="onb-shint">{s.hint}</span>
+                </button>
+              {/each}
+            </div>
+          </div>
+        {/if}
         <div class="dash-kpis">
           <div class="kpi">
             <span class="kpi-l">Status profilu</span>
@@ -656,6 +736,48 @@
           {/if}
         </div>
       {/if}
+    {:else if activeTab === 'kandydaci'}
+      <!-- KANDYDACI -->
+      <div style="max-width:820px">
+        <div class="section-head"><h2>Kandydaci</h2></div>
+        {#if !applications.length}
+          <div class="bk-empty"><h3>Brak aplikacji</h3><p>Gdy ktoś zaaplikuje na Twoje ogłoszenie, pojawi się tutaj. Dodaj ofertę w zakładce „Oferty pracy".</p></div>
+        {:else}
+          <div class="kand-list">
+            {#each applications as a (a.id)}
+              <div class="kand-card">
+                <div class="kand-row">
+                  <span class="kand-av" aria-hidden="true">{(a.applicant_name ?? '?')[0]}</span>
+                  <div class="kand-main">
+                    <div class="kand-top">
+                      <span class="kand-name">{a.applicant_name ?? 'Kandydat'}</span>
+                      <span class="pill s-{a.stage}">{stageLabel(a.stage)}</span>
+                    </div>
+                    <span class="kand-meta">{a.headline ?? '—'}{a.experience_years != null ? ` · ${a.experience_years} lat dośw.` : ''} · do: {a.job_title}</span>
+                  </div>
+                  <button type="button" class="bk-btn bk-btn-outline" style="font-size:.78rem;padding:.35rem .8rem" onclick={() => (expandedApp = expandedApp === a.id ? null : a.id)}>{expandedApp === a.id ? 'Zwiń' : 'CV'}</button>
+                </div>
+                {#if expandedApp === a.id}
+                  <div class="kand-cv">
+                    {#if a.skills?.length}<div class="kand-chips">{#each a.skills as s}<span class="kand-chip">{s}</span>{/each}</div>{/if}
+                    {#if a.message}<p class="kand-msg">„{a.message}"</p>{/if}
+                    <p class="kand-contact">✉️ {a.applicant_email ?? '—'} · aplikacja {timeAgo(a.created_at)}</p>
+                    <div class="kand-actions">
+                      <label class="kand-stage">Etap
+                        <select value={a.stage} onchange={(e) => setStage(a, (e.currentTarget as HTMLSelectElement).value)}>
+                          {#each APP_STAGES as st}<option value={st.id}>{st.label}</option>{/each}
+                        </select>
+                      </label>
+                      <button type="button" class="bk-btn bk-btn-primary" style="font-size:.8rem;padding:.4rem .9rem" onclick={() => setStage(a, 'interview')}>Zaproś na rozmowę</button>
+                      <button type="button" class="bk-btn bk-btn-outline" style="font-size:.8rem;padding:.4rem .9rem" onclick={() => setStage(a, 'rejected')}>Odrzuć</button>
+                    </div>
+                  </div>
+                {/if}
+              </div>
+            {/each}
+          </div>
+        {/if}
+      </div>
     {:else if activeTab === 'abonament'}
       <!-- ABONAMENT -->
       <div style="max-width:900px">
@@ -722,6 +844,100 @@
 {/snippet}
 
 <style>
+  /* ONBOARDING */
+  .onb {
+    background: var(--sidebar-bg);
+    border-radius: 18px;
+    padding: 22px 24px;
+    color: var(--porcelain);
+  }
+  .onb-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 18px;
+  }
+  .onb-eyebrow {
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--gold);
+    font-weight: 600;
+  }
+  .onb-h {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: 22px;
+    color: var(--porcelain);
+    margin: 4px 0 0;
+  }
+  .onb-pct {
+    font-family: var(--serif);
+    font-size: 26px;
+    color: var(--champagne);
+    flex: none;
+  }
+  .onb-steps {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+  .onb-step {
+    text-align: left;
+    background: rgba(251, 247, 241, 0.05);
+    border: 1px solid rgba(198, 161, 91, 0.22);
+    border-radius: 12px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: 0.15s;
+  }
+  .onb-step:hover {
+    border-color: var(--gold);
+  }
+  .onb-step.active {
+    background: rgba(198, 161, 91, 0.16);
+    border-color: var(--gold);
+  }
+  .onb-num {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: #efe6da;
+    color: #8a7d71;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12.5px;
+    font-weight: 700;
+  }
+  .onb-step.active .onb-num {
+    background: var(--gold);
+    color: var(--ink);
+  }
+  .onb-step.done .onb-num {
+    background: var(--ok-fg);
+    color: #fff;
+  }
+  .onb-slabel {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--porcelain);
+  }
+  .onb-shint {
+    font-size: 12px;
+    color: #a89a8b;
+  }
+  @media (max-width: 720px) {
+    .onb-steps {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+
   /* PULPIT */
   .dash {
     display: flex;
@@ -971,6 +1187,140 @@
     border: 1px solid var(--line-strong);
     color: var(--ink-2);
     cursor: default;
+  }
+
+  /* KANDYDACI */
+  .kand-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .kand-card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 16px 18px;
+  }
+  .kand-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .kand-av {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: linear-gradient(145deg, #e7cfc6, var(--gold));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--serif);
+    font-size: 18px;
+    color: #fff;
+    flex: none;
+    text-transform: uppercase;
+  }
+  .kand-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .kand-top {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .kand-name {
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--ink);
+  }
+  .kand-meta {
+    font-size: 13px;
+    color: var(--ink-3);
+  }
+  .kand-cv {
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .kand-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .kand-chip {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent-d);
+    background: var(--blush);
+    border-radius: 999px;
+    padding: 4px 10px;
+  }
+  .kand-msg {
+    font-size: 14px;
+    color: var(--ink-2);
+    font-style: italic;
+  }
+  .kand-contact {
+    font-size: 12.5px;
+    color: var(--ink-3);
+  }
+  .kand-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .kand-stage {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink-3);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .kand-stage select {
+    padding: 0.4rem 0.6rem;
+    border: 1px solid var(--line-strong);
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 0.8rem;
+    background: var(--card);
+    color: var(--ink);
+  }
+  .pill {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  .pill.s-sent {
+    background: var(--neutral-bg);
+    color: var(--neutral-fg);
+  }
+  .pill.s-review {
+    background: var(--info-bg);
+    color: var(--info-fg);
+  }
+  .pill.s-interview {
+    background: var(--warn-bg);
+    color: var(--warn-fg);
+  }
+  .pill.s-offer {
+    background: var(--ok-bg);
+    color: var(--ok-fg);
+  }
+  .pill.s-rejected {
+    background: var(--err-bg);
+    color: var(--err-fg);
   }
 
   .section-head {
