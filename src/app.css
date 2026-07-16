@@ -1,26 +1,46 @@
 /* ================================================================
-   BeautyKatalog · globalny system designu
-   Kierunek: edytorski / magazynowy (design-spec.md §4–8)
-   Akcent terakota na kości słoniowej · Fraunces + Inter (400/500)
-   Włosowe linie zamiast cieni · miękkie zaokrąglenia
+   VELORA · globalny system designu (rebrand 2026)
+   Kierunek: editorial beauty magazine — nude/beż, złoto/miedź, róż,
+   głęboki grafit. Nagłówki Playfair Display · UI/body Hanken Grotesk.
+   Dużo światła, zaokrąglone kadry, subtelne mikroanimacje.
 ================================================================ */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 
 :root{
-  /* — Paleta (design-spec.md §5) — */
-  --paper:#F7F3EC;        /* kość słoniowa — tło strony */
-  --card:#FBF8F2;         /* biel ciepła — tło kart */
-  --ink:#2B2724;          /* grafit — tekst główny, ciemne CTA */
-  --ink-2:#6E665D;        /* taupe — tekst drugorzędny */
-  --ink-3:#9A9186;        /* szary ciepły — podpisy, pomocniczy */
-  --accent:#B5532E;       /* terakota — przyciski, linki, akcent */
-  --accent-d:#8A4022;     /* terakota ciemna — tekst na blush */
-  --blush:#F0E3DB;        /* blush / piasek — placeholdery, miękkie pola */
-  --gold:#C08A2D;         /* złoto — gwiazdki, oceny */
-  --ok-bg:#E4EFE6;        /* status: tło zielone */
-  --ok-fg:#2F5D3A;        /* status: tekst zielony */
-  --line:rgba(43,39,36,.12);     /* włosowe linie, obramowania */
-  --line-strong:rgba(43,39,36,.16);
+  /* — Paleta VELORA (Design Tokens) — */
+  --porcelain:#FBF7F1;    /* tło główne */
+  --linen:#F3EBE0;        /* tło alternatywne */
+  --sand:#EADFD1;         /* karty / pola */
+  --almond:#E0CFBC;       /* obramowania ciepłe */
+  --blush:#EBCDC7;        /* tagi / miękki akcent */
+  --rose:#D3A39B;         /* akcent różany (Panel Klienta) */
+  --graphite:#4A413A;     /* tekst wtórny */
+  --espresso:#2E2620;     /* ciemne powierzchnie */
+  --ink:#201B17;          /* tekst / przyciski primary */
+  --gold:#C6A15B;         /* akcent premium / focus ring / oceny */
+  --copper:#B0794C;       /* akcent ciepły / hover / linki */
+  --champagne:#E4D2AE;    /* złoto rozjaśnione */
+  --sidebar-bg:#241D18;   /* tło paneli (nawigacja) */
+
+  /* — Role tekstu / powierzchni (mapa na paletę) — */
+  --paper:var(--porcelain);   /* tło strony */
+  --card:#FFFFFF;             /* powierzchnia kart */
+  --ink-2:var(--graphite);    /* tekst drugorzędny */
+  --ink-3:#8A7D71;            /* podpisy / pomocniczy */
+  --accent:var(--copper);     /* linki / ciepły akcent */
+  --accent-d:#8A5D38;         /* miedź ciemna — tekst na blush */
+
+  /* — Semantyczne (pill) — */
+  --ok-bg:#DCE6D4;--ok-fg:#4B6340;
+  --warn-bg:#F6E7C8;--warn-fg:#8A6516;
+  --err-bg:#F0D9D5;--err-fg:#93443C;
+  --info-bg:#DBE1E8;--info-fg:#455163;
+  --neutral-bg:#E7DDD0;--neutral-fg:#5A4F45;
+  --premium-bg:#E4D2AE;--premium-fg:#6E5423;
+
+  /* — Włoskowe linie / obramowania (ciepły odcień) — */
+  --line:rgba(32,27,23,.10);
+  --line-strong:rgba(32,27,23,.16);
 
   /* — Aliasy zgodne ze starymi nazwami (kompatybilność komponentów) — */
   --v:var(--accent);--vl:var(--blush);--vd:var(--accent-d);
@@ -28,13 +48,27 @@
   --muted:var(--ink-2);--border:var(--line);--bg:var(--paper);
   --white:var(--card);
 
-  /* — Promienie / głębia — */
-  --r:12px;               /* miękkie zaokrąglenie kart (§4: 9–14px) */
-  --r-sm:9px;
-  --shadow:none;          /* §4: brak box-shadow — głębia z linii */
+  /* — Promienie — */
+  --r:16px;               /* karty 16–20px */
+  --r-sm:10px;            /* przyciski / pola */
+  --r-lg:20px;
+  --r-xl:24px;
+  --r-pill:999px;
 
-  --serif:'Fraunces',Georgia,'Times New Roman',serif;
-  --sans:'Inter',system-ui,sans-serif;
+  /* — Cienie (ciepły odcień rgba(32,27,23,·)) — */
+  --shadow:none;
+  --shadow-card:0 1px 2px rgba(32,27,23,.04);
+  --shadow-lift:0 14px 34px rgba(32,27,23,.10);
+  --shadow-float:0 30px 70px rgba(32,27,23,.16);
+
+  --serif:'Playfair Display',Georgia,'Times New Roman',serif;
+  --sans:'Hanken Grotesk',system-ui,sans-serif;
+}
+
+/* Mikroanimacja pływających elementów (hero) — respektuje reduced-motion */
+@keyframes velFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:.001ms!important;animation-iteration-count:1!important}
 }
 
 body{font-family:var(--sans);background:var(--paper);color:var(--ink);line-height:1.6;min-height:100vh;font-weight:400;-webkit-font-smoothing:antialiased}
@@ -55,16 +89,16 @@ input,select,textarea{font-family:inherit}
 .bk-nav-link{padding:.35rem .8rem;border-radius:9999px;font-size:.85rem;font-weight:500;color:var(--ink-2);transition:.15s;white-space:nowrap}
 .bk-nav-link:hover{color:var(--ink)}
 .bk-nav-link.active{color:var(--accent-d);background:var(--blush)}
-.bk-nav-cta{padding:.45rem 1.05rem;background:var(--accent);color:#fff;border-radius:9999px;font-size:.85rem;font-weight:500;transition:.15s;flex-shrink:0;white-space:nowrap}
-.bk-nav-cta:hover{background:var(--accent-d)}
+.bk-nav-cta{padding:.5rem 1.15rem;background:var(--ink);color:var(--paper);border-radius:9999px;font-size:.85rem;font-weight:600;transition:.15s;flex-shrink:0;white-space:nowrap}
+.bk-nav-cta:hover{background:var(--copper)}
 
 /* LAYOUT */
 .bk-container{max-width:1240px;margin:0 auto;padding:0 1.25rem;width:100%}
 
 /* BUTTONS — primary: terakota / secondary: obrys grafitowy (§8) */
 .bk-btn{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;padding:.6rem 1.3rem;border-radius:var(--r-sm);font-size:.9rem;font-weight:500;border:1px solid transparent;transition:.18s;cursor:pointer;line-height:1.2}
-.bk-btn-primary{background:var(--accent);color:#fff}
-.bk-btn-primary:hover{background:var(--accent-d)}
+.bk-btn-primary{background:var(--ink);color:var(--paper)}
+.bk-btn-primary:hover{background:var(--copper)}
 .bk-btn-primary:disabled{opacity:.55;cursor:not-allowed}
 .bk-btn-outline{background:transparent;color:var(--ink);border-color:var(--line-strong)}
 .bk-btn-outline:hover{border-color:var(--ink);background:rgba(43,39,36,.03)}
@@ -116,8 +150,8 @@ input,select,textarea{font-family:inherit}
 
 /* FOOTER */
 .bk-footer{background:var(--ink);color:var(--ink-3);text-align:center;padding:1.75rem 1.25rem;font-size:.82rem;margin-top:auto}
-.bk-footer a{color:#D98A63}
-.bk-footer a:hover{color:#E8A77F}
+.bk-footer a{color:var(--champagne)}
+.bk-footer a:hover{color:#F0E2C4}
 
 /* HR — włosowy separator */
 .bk-hr{border:none;border-top:1px solid var(--line);margin:0}
@@ -126,4 +160,8 @@ input,select,textarea{font-family:inherit}
 @media(max-width:640px){
   .bk-nav-cta span{display:none}
   .bk-modal{padding:1.25rem}
+}
+/* Miejsce na dolny pasek nawigacji (mobile) */
+@media(max-width:767px){
+  body{padding-bottom:calc(58px + env(safe-area-inset-bottom,0))}
 }
