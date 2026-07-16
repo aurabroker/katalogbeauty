@@ -66,16 +66,14 @@
       });
     }
     return [
-      { eyebrow: 'Fryzjer · Koloryzacja', name: 'Studio 01', meta: 'Warszawa, Śródmieście' },
-      { eyebrow: 'Kosmetyka', name: 'Studio 02', meta: 'Kraków' },
-      { eyebrow: 'Barber', name: 'Studio 03', meta: 'Wrocław' },
-      { eyebrow: 'Paznokcie · Stylizacja', name: 'Studio 04', meta: 'Poznań' },
-      { eyebrow: 'SPA · Masaż', name: 'Studio 05', meta: 'Gdańsk' },
-      { eyebrow: 'Makijaż · Brwi', name: 'Studio 06', meta: 'Łódź' }
-    ].map((p, i) => ({ href: '/szukaj', cover: '', tone: salonTones[i], count: 0, ...p }));
+      { eyebrow: 'Fryzjer · Koloryzacja', name: 'Studio 01', meta: 'Warszawa, Śródmieście', cover: '/salon-01-fryzjer.webp' },
+      { eyebrow: 'Kosmetyka', name: 'Studio 02', meta: 'Kraków', cover: '/salon-02-kosmetyka.webp' },
+      { eyebrow: 'SPA · Masaż', name: 'Studio 03', meta: 'Wrocław', cover: '/salon-03-spa.webp' },
+      { eyebrow: 'Barber', name: 'Studio 04', meta: 'Poznań', cover: '/salon-04-barber.webp' },
+      { eyebrow: 'Medycyna estetyczna', name: 'Studio 05', meta: 'Gdańsk', cover: '/salon-05-medycyna.webp' },
+      { eyebrow: 'Paznokcie · Stylizacja', name: 'Studio 06', meta: 'Łódź', cover: '/salon-06-paznokcie.webp' }
+    ].map((p, i) => ({ href: '/szukaj', tone: salonTones[i], count: 0, ...p }));
   });
-
-  const hasSalons = $derived((data.salons ?? []).length > 0);
 
   /* ————— Popularne oferty pracy ————— */
   function initials(t: string): string {
@@ -241,7 +239,7 @@
         <a href={s.href} class="vel-salon">
           <div class="vel-salon-img" style="background:{s.tone}">
             {#if s.cover}<img src={s.cover} alt={s.name} loading="lazy" />{/if}
-            <span class="vel-salon-tag">{hasSalons ? 'Wyróżniony' : 'Placeholder'}</span>
+            <span class="vel-salon-tag">Wyróżniony</span>
             <span class="vel-heart" aria-hidden="true">♥</span>
           </div>
           <div class="vel-salon-body">
@@ -633,7 +631,14 @@
   .vel-portrait {
     aspect-ratio: 5 / 6;
     border-radius: 24px;
-    background: linear-gradient(160deg, #e7cfc6, #c29a88 55%, #8b6a59);
+    background:
+      linear-gradient(180deg, rgba(32, 27, 23, 0.28), rgba(32, 27, 23, 0) 42%),
+      linear-gradient(160deg, #e7cfc6, #c29a88 55%, #8b6a59);
+    background-image:
+      linear-gradient(180deg, rgba(32, 27, 23, 0.28), rgba(32, 27, 23, 0) 42%),
+      url('/hero.webp');
+    background-size: cover;
+    background-position: center;
     box-shadow: 0 30px 70px rgba(32, 27, 23, 0.22);
     position: relative;
     overflow: hidden;

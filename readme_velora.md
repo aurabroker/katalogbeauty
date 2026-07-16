@@ -79,6 +79,13 @@ są już scentralizowane, więc migracja będzie prosta.
 Weryfikacja: `npm run check` (0 błędów), `npm run build` OK, zrzuty desktop 1280 +
 mobile 390 zgodne z referencją VELORA (sekcja 03).
 
+**Zdjęcia (2026-07-16):** wgrane przez zamawiającego PNG-i (2752×1536, ~6 MB każdy)
+zoptymalizowane przez `sharp` do **WebP** (`static/*.webp`, łącznie ~305 KB zamiast
+~45 MB). Podpięte: `hero.webp` w tło hero (z overlayem dla czytelności podpisu) oraz
+6 okładek `salon-0X-*.webp` w karty „Wyróżnione salony" (kategorie dopasowane do
+nazw plików). Źródłowe PNG-i pozostają w `static/` — do usunięcia po akceptacji
+(nieużywane, bez nich repo/deploy odchudza się o ~45 MB).
+
 ---
 
 ## Roadmap (kolejne etapy)
