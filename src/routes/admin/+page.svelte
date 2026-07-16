@@ -5,7 +5,7 @@
   import { salaryLabel, timeAgo, isValidEmail, isValidPhone, VOIVODESHIPS } from '$lib/utils';
   import AuthForm from '$lib/components/AuthForm.svelte';
   import Spinner from '$lib/components/Spinner.svelte';
-  import Footer from '$lib/components/Footer.svelte';
+  import PanelShell from '$lib/components/PanelShell.svelte';
   import type { Database, JobListing, Salon, JobType, JobStatus, Employment } from '$lib/database.types';
 
   interface AdminUser {
@@ -32,17 +32,33 @@
   let loading = $state(false);
 
   let activeTab = $state<'stats' | 'jobs' | 'salons' | 'users'>('stats');
-  const tabs = [
-    { id: 'stats', label: '📊 Statystyki' },
-    { id: 'jobs', label: '💼 Ogłoszenia' },
-    { id: 'salons', label: '🏠 Salony' },
-    { id: 'users', label: '👤 Użytkownicy' }
-  ] as const;
 
   let stats = $state<Stats | null>(null);
   let jobs = $state<JobListing[]>([]);
   let salons = $state<Salon[]>([]);
   let users = $state<AdminUser[]>([]);
+
+  const pendingCount = $derived(jobs.filter((j) => j.status !== 'active').length);
+
+  const navGroups = $derived([
+    {
+      label: 'Ogólne',
+      items: [
+        { id: 'stats', label: 'Pulpit', icon: 'grid' },
+        { id: 'jobs', label: 'Ogłoszenia', icon: 'briefcase', badge: pendingCount || undefined, badgeAlert: true },
+        { id: 'salons', label: 'Salony', icon: 'building' },
+        { id: 'users', label: 'Użytkownicy', icon: 'users' }
+      ]
+    }
+  ]);
+
+  const TITLES: Record<string, string> = {
+    stats: 'Pulpit',
+    jobs: 'Moderacja ogłoszeń',
+    salons: 'Salony',
+    users: 'Użytkownicy'
+  };
+  const panelTitle = $derived(TITLES[activeTab] ?? 'Panel administratora');
 
   // filtr listy ogłoszeń (kolejka moderacji)
   let jobFilter = $state<'all' | 'pending' | 'active'>('pending');
@@ -319,36 +335,66 @@
     </div>
   </main>
 {:else}
-  <main class="bk-container" style="padding-top:2rem;padding-bottom:4rem;max-width:1000px">
-    <div class="topbar">
-      <div>
-        <h1>Panel administratora</h1>
-        <p class="email">{auth.user.email} · <span style="color:var(--v);font-weight:700">admin</span></p>
-      </div>
-      <div style="display:flex;gap:.6rem;flex-wrap:wrap">
-        <a href="/" class="bk-btn bk-btn-outline" style="font-size:.8rem;padding:.4rem .9rem">← Strona główna</a>
-        <button class="bk-btn bk-btn-outline" style="font-size:.8rem;padding:.4rem .9rem" onclick={logout}>Wyloguj</button>
-      </div>
-    </div>
-
-    <div class="tabs">
-      {#each tabs as t}
-        <button class:on={activeTab === t.id} onclick={() => (activeTab = t.id)}>{t.label}</button>
-      {/each}
-    </div>
-
+  <PanelShell
+    title={panelTitle}
+    breadcrumb="Panel administratora"
+    nav={navGroups}
+    active={activeTab}
+    accent="gold"
+    userName="Administrator"
+    userMeta={auth.user.email}
+    searchPlaceholder="Szukaj salonu, użytkownika…"
+    onselect={(id) => (activeTab = id as typeof activeTab)}
+    onlogout={logout}
+  >
     {#if loading}
       <Spinner />
     {:else if activeTab === 'stats'}
       {#if stats}
-        <div class="cards">
-          <div class="stat"><span class="num">{stats.salons_total}</span><span class="lbl">Salony łącznie</span></div>
-          <div class="stat"><span class="num">{stats.salons_active}</span><span class="lbl">Salony aktywne</span></div>
-          <div class="stat"><span class="num">{stats.jobs_total}</span><span class="lbl">Ogłoszenia łącznie</span></div>
-          <div class="stat"><span class="num">{stats.jobs_active}</span><span class="lbl">Ogłoszenia aktywne</span></div>
-          <div class="stat"><span class="num">{stats.jobs_paid}</span><span class="lbl">Ogłoszenia opłacone</span></div>
-          <div class="stat"><span class="num" style="color:var(--v)">{stats.revenue_pln} zł</span><span class="lbl">Przychód</span></div>
-          <div class="stat"><span class="num">{stats.users_total}</span><span class="lbl">Użytkownicy</span></div>
+        <div class="akpis">
+          <div class="akpi">
+            <span class="akpi-l">Salony aktywne</span>
+            <span class="akpi-v">{stats.salons_active}</span>
+            <span class="akpi-h">z {stats.salons_total} w katalogu</span>
+          </div>
+          <div class="akpi">
+            <span class="akpi-l">Ogłoszenia aktywne</span>
+            <span class="akpi-v">{stats.jobs_active}</span>
+            <span class="akpi-h">z {stats.jobs_total} łącznie</span>
+          </div>
+          <div class="akpi">
+            <span class="akpi-l">Użytkownicy</span>
+            <span class="akpi-v">{stats.users_total}</span>
+            <span class="akpi-h">konta w katalogu</span>
+          </div>
+          <div class="akpi akpi-dark">
+            <span class="akpi-l">Przychód</span>
+            <span class="akpi-v">{stats.revenue_pln} zł</span>
+            <span class="akpi-h">z {stats.jobs_paid} opłaconych ogłoszeń</span>
+          </div>
+        </div>
+
+        <div class="adash-row">
+          <div class="adash-card">
+            <div class="adash-head">
+              <h3>Kolejka moderacji</h3>
+              {#if pendingCount}<span class="adash-badge">{pendingCount} do akceptacji</span>{/if}
+            </div>
+            {#if pendingCount}
+              <p class="adash-note">Ogłoszenia oczekujące na akceptację przed publikacją.</p>
+              <button type="button" class="bk-btn bk-btn-primary" style="align-self:flex-start" onclick={() => (activeTab = 'jobs')}>Przejdź do moderacji</button>
+            {:else}
+              <div class="adash-empty">Brak ogłoszeń do moderacji — wszystko na bieżąco.</div>
+            {/if}
+          </div>
+          <div class="adash-card">
+            <div class="adash-head"><h3>Skróty</h3></div>
+            <div class="adash-actions">
+              <button type="button" onclick={() => (activeTab = 'jobs')}>Ogłoszenia i moderacja</button>
+              <button type="button" onclick={() => (activeTab = 'salons')}>Zarządzaj salonami</button>
+              <button type="button" onclick={() => (activeTab = 'users')}>Użytkownicy i role</button>
+            </div>
+          </div>
         </div>
       {/if}
 
@@ -499,47 +545,127 @@
         {/each}
       {/if}
     {/if}
-  </main>
-
-  <Footer><span style="color:var(--muted)">© 2026 BeautyKatalog · panel administratora</span></Footer>
+  </PanelShell>
 {/if}
 
 <style>
-  .topbar {
+  /* PULPIT ADMINA */
+  .akpis {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+  .akpi {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .akpi-dark {
+    background: var(--sidebar-bg);
+  }
+  .akpi-l {
+    font-size: 12px;
+    color: var(--ink-3);
+    font-weight: 500;
+  }
+  .akpi-dark .akpi-l {
+    color: var(--gold);
+  }
+  .akpi-v {
+    font-family: var(--serif);
+    font-size: 32px;
+    line-height: 1;
+    color: var(--ink);
+  }
+  .akpi-dark .akpi-v {
+    color: var(--porcelain);
+  }
+  .akpi-h {
+    font-size: 12px;
+    color: var(--ink-3);
+  }
+  .adash-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .adash-card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .adash-head {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 1rem;
-    margin-bottom: 1.5rem;
   }
-  .topbar h1 {
-    font-size: 1.4rem;
-    margin-bottom: 0.15rem;
-  }
-  .email {
-    font-size: 0.8rem;
-    color: var(--muted);
-  }
-  .tabs {
-    display: flex;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-    margin-bottom: 1.5rem;
-  }
-  .tabs button {
-    padding: 0.5rem 0.9rem;
-    border: none;
-    background: var(--vl);
-    color: var(--v);
-    border-radius: 0.5rem;
+  .adash-head h3 {
+    font-size: 15px;
     font-weight: 700;
-    font-size: 0.82rem;
-    cursor: pointer;
+    color: var(--ink);
   }
-  .tabs button.on {
-    background: var(--v);
-    color: #fff;
+  .adash-badge {
+    background: var(--err-bg);
+    color: var(--err-fg);
+    font-size: 12px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 999px;
+  }
+  .adash-note {
+    font-size: 13px;
+    color: var(--ink-2);
+  }
+  .adash-empty {
+    border: 1px dashed var(--line-strong);
+    border-radius: 12px;
+    padding: 22px;
+    text-align: center;
+    font-size: 13.5px;
+    color: var(--ink-3);
+  }
+  .adash-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .adash-actions button {
+    text-align: left;
+    background: var(--porcelain);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 11px 14px;
+    font-family: inherit;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--ink);
+    cursor: pointer;
+    transition: 0.15s;
+  }
+  .adash-actions button:hover {
+    border-color: var(--gold);
+  }
+  @media (max-width: 900px) {
+    .akpis {
+      grid-template-columns: 1fr 1fr;
+    }
+    .adash-row {
+      grid-template-columns: 1fr;
+    }
+  }
+  @media (max-width: 560px) {
+    .akpis {
+      grid-template-columns: 1fr;
+    }
   }
   .jobs-head {
     display: flex;
@@ -617,28 +743,6 @@
     background: var(--v);
     color: #fff;
     border-color: var(--v);
-  }
-  .cards {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-    gap: 1rem;
-  }
-  .stat {
-    background: #fff;
-    border: 1px solid var(--border);
-    border-radius: 0.75rem;
-    padding: 1.25rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
-  }
-  .stat .num {
-    font-size: 1.6rem;
-    font-weight: 800;
-  }
-  .stat .lbl {
-    font-size: 0.78rem;
-    color: var(--muted);
   }
   .row {
     padding: 1rem 1.25rem;

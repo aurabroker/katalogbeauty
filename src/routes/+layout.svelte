@@ -7,7 +7,7 @@
   let { children } = $props();
 
   // Trasy z własnym app-shellem (PanelShell) nie pokazują publicznej nawigacji.
-  const shellRoutes = ['/panel'];
+  const shellRoutes = ['/panel', '/admin', '/klient'];
   const isShell = $derived(
     shellRoutes.some((p) => page.url.pathname === p || page.url.pathname.startsWith(p + '/'))
   );

@@ -118,11 +118,25 @@ Weryfikacja: `npm run check` 0 błędów, `npm run build` OK, shell zweryfikowan
 zrzutem (desktop + mobile drawer). Zalogowany pulpit renderuje się z realnych
 danych salonu (auth przez Supabase).
 
+### Etap 2b — Panel Admina + Panel Klienta · 2026-07-16
+
+- **Panel Admina (`/admin`)** przełożony na `PanelShell` (akcent gold): nawigacja
+  sidebar (Pulpit · Ogłoszenia z badge liczby oczekujących · Salony · Użytkownicy),
+  nowy **Pulpit** z KPI (aktywne salony, ogłoszenia, użytkownicy, przychód — realne
+  dane z `katalog_admin_stats`) i kolejką moderacji. Funkcje moderacji, dodawania
+  ogłoszeń, zarządzania salonami i rolami — bez zmian.
+- **Panel Klienta (`/klient`, nowy)** na `PanelShell` z akcentem **rose**: Pulpit
+  (KPI: najbliższa wizyta, zapisane salony, aplikacje, szkolenia), nadchodzące
+  rezerwacje, profil/CV z paskiem kompletności i tagami umiejętności, status
+  aplikacji (stage-pill) i moje szkolenia (pasek postępu). Dane demonstracyjne —
+  do podpięcia pod backend. Auth przez Supabase; mobilny tab „Konto" → `/klient`.
+- `+layout`: `/admin` i `/klient` dodane do tras z ukrytą publiczną nawigacją.
+
+Weryfikacja: `npm run check` 0 błędów, `npm run build` OK; akcent rose zweryfikowany
+zrzutem. **Cały Etap 2 (app-shell + 3 panele) scalony do `main`.**
+
 ## Roadmap (kolejne etapy)
 
-- **Etap 2b — pozostałe panele:** Panel Admina (KPI, wykres przychodu, moderacja)
-  i Panel Klienta (akcent różany: rezerwacje, zapisane salony, aplikacje, CV,
-  szkolenia) na tym samym `PanelShell`.
 - **Etap 3 — Filar Szkolenia:** tabele Supabase (szkolenia, zapisy, faktury),
   katalog + karta szkolenia + checkout (karta/BLIK/Przelewy24) + certyfikacja.
 - **Etap 4 — Marketplace pracy 2.0:** flow aplikacji o pracę + CV, lejek kandydata
