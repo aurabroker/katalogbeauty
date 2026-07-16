@@ -158,12 +158,37 @@ Płatność jest **makietą** (bez realnego obciążenia) — podłączenie Prze
 `npm run build` OK. Uwaga: w sandboxie Supabase jest nieosiągalny sieciowo, więc
 katalog renderuje realne dane dopiero na produkcji (Cloudflare).
 
+### Etap 4 — Aplikacje + CV, Panel Klienta pod bazę, onboarding · 2026-07-16
+
+- **Supabase:** migracja `20260716_velora_applications_cv_saved.sql` (zastosowana):
+  `candidate_profiles` (CV), `job_applications` (aplikacje ze snapshotem CV i etapem
+  `sent/review/interview/offer/rejected`, unikat na parę oferta+kandydat),
+  `saved_salons`. RLS: kandydat (własne), właściciel oferty (wgląd + zmiana etapu
+  aplikacji do swoich ogłoszeń), admin. Typy dodane.
+- **Flow aplikacji (kandydat)** na `/jobs/[id]`: „Aplikuj przez VELORA" →
+  formularz (prefill z CV, zapis snapshotu + upsert CV) → potwierdzenie; blokada
+  podwójnej aplikacji; wymaga logowania.
+- **Flow aplikacji (salon)** — zakładka **Kandydaci** w `/panel` (badge nowych):
+  lista aplikacji do ofert właściciela, rozwijane CV (umiejętności, wiadomość,
+  kontakt), lejek etapów (`select` + „Zaproś na rozmowę"/„Odrzuć").
+- **Panel Klienta pod bazę:** `/klient` czyta realne dane — moje szkolenia
+  (`training_enrollments`), aplikacje (`job_applications` + tytuł oferty), zapisane
+  salony (`saved_salons`, z usuwaniem), **edytowalny profil/CV** (`candidate_profiles`)
+  z paskiem kompletności. KPI liczone. Rezerwacje = stan „wkrótce" (booking odłożony).
+- **Onboarding salonu** w `/panel` (Pulpit): stepper 4 kroków (Dane → Usługi →
+  Galeria → Pakiet) ze statusem liczonym z realnych danych; znika po uzupełnieniu.
+
+Weryfikacja: `npm run check` 0 błędów, `npm run build` OK; onboarding + kandydaci
+zweryfikowane zrzutem. Panele auth-gated (dane po zalogowaniu; Supabase nieosiągalny
+w sandboxie — realne dane na produkcji).
+
 ## Roadmap (kolejne etapy)
-- **Etap 4 — Marketplace pracy 2.0:** flow aplikacji o pracę + CV, lejek kandydata
-  po stronie salonu.
-- **Etap 5 — Abonamenty B2B:** Free / Pro / Premium + onboarding salonu (stepper 4).
-- **Etap 6 — Biblioteka komponentów + tokeny (sekcja 07)**, opcjonalnie Tailwind.
-- **Odłożone:** rezerwacja wizyty (wybór usługi → termin → potwierdzenie).
+- **Realne płatności** (Przelewy24/Stripe) dla szkoleń i abonamentów B2B — klucze,
+  webhooki, tabela faktur.
+- **Rezerwacja wizyty** (odłożone): wybór usługi → termin → potwierdzenie
+  (moduł kalendarza salonu + KPI „najbliższa wizyta" klienta).
+- **Zapisywanie salonów (♥)** na kartach/profilach → `saved_salons` (tabela gotowa).
+- **Biblioteka komponentów + tokeny (sekcja 07)**, opcjonalnie Tailwind.
 
 ## Placeholdery do podmiany na realne dane
 
