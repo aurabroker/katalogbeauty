@@ -18,7 +18,7 @@
     <div class="vel-links">
       <a href="/" class="vel-link" class:active={isActive('/')}>Salony</a>
       <a href="/jobs" class="vel-link" class:active={isActive('/jobs')}>Praca</a>
-      <a href="/#szkolenia" class="vel-link">Szkolenia</a>
+      <a href="/szkolenia" class="vel-link" class:active={isActive('/szkolenia')}>Szkolenia</a>
       <a href="/panel" class="vel-link" class:active={isActive('/panel')}>Dla salonów</a>
     </div>
 
@@ -39,7 +39,7 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2"/><path d="M3 12h18"/></svg>
     <span>Praca</span>
   </a>
-  <a href="/#szkolenia" class="vel-tab">
+  <a href="/szkolenia" class="vel-tab" class:on={isActive('/szkolenia')}>
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 10L12 5 2 10l10 5 10-5z"/><path d="M6 12v5c0 1 2.5 2.5 6 2.5s6-1.5 6-2.5v-5"/></svg>
     <span>Szkolenia</span>
   </a>

@@ -135,10 +135,30 @@ danych salonu (auth przez Supabase).
 Weryfikacja: `npm run check` 0 błędów, `npm run build` OK; akcent rose zweryfikowany
 zrzutem. **Cały Etap 2 (app-shell + 3 panele) scalony do `main`.**
 
-## Roadmap (kolejne etapy)
+### Etap 3 — Filar Szkolenia (UI + tabele, płatność makieta) · 2026-07-16
 
-- **Etap 3 — Filar Szkolenia:** tabele Supabase (szkolenia, zapisy, faktury),
-  katalog + karta szkolenia + checkout (karta/BLIK/Przelewy24) + certyfikacja.
+- **Supabase:** migracja `supabase/migrations/20260716_velora_trainings.sql`
+  (zastosowana na projekcie `dhuvykwecsxgchzxufxw`): tabele **`trainings`** i
+  **`training_enrollments`** z izolacją `source='katalog'` i RLS (publiczny odczyt
+  aktywnych, insert/select własnych zapisów, pełny dostęp `is_katalog_admin`).
+  Zseedowano **6 szkoleń demonstracyjnych** (placeholdery — usuwalne).
+  Typy dodane w `database.types.ts` (`Training`, `TrainingEnrollment`).
+- **Katalog `/szkolenia`:** siatka kart (obraz/gradient, kategoria, tytuł,
+  format·miasto·termin, cena + wolne miejsca, „Zapisz się") + filtr kategorii;
+  dane z Supabase, fallback demo na landingu.
+- **Szczegół `/szkolenia/[slug]`:** stepper 3-krokowy — szczegóły → **checkout
+  (makieta)** z podsumowaniem VAT 23%, zakładkami Karta/BLIK/Przelewy24, stanem
+  `idle→processing→success` → **potwierdzenie** (dostęp, przypomnienie, certyfikat).
+  Po opłaceniu (zalogowany) tworzy się wpis w `training_enrollments`.
+- **Wiring:** Nav „Szkolenia" i landing „Polecane szkolenia" → `/szkolenia`
+  (realne dane); helpery `formatLabel`/`trainingDate`/`seatsLabel` w `utils.ts`.
+
+Płatność jest **makietą** (bez realnego obciążenia) — podłączenie Przelewy24/Stripe
+(klucze + webhooki) to osobny krok. Weryfikacja: `npm run check` 0 błędów,
+`npm run build` OK. Uwaga: w sandboxie Supabase jest nieosiągalny sieciowo, więc
+katalog renderuje realne dane dopiero na produkcji (Cloudflare).
+
+## Roadmap (kolejne etapy)
 - **Etap 4 — Marketplace pracy 2.0:** flow aplikacji o pracę + CV, lejek kandydata
   po stronie salonu.
 - **Etap 5 — Abonamenty B2B:** Free / Pro / Premium + onboarding salonu (stepper 4).
