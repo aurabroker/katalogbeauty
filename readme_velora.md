@@ -84,7 +84,11 @@ zoptymalizowane przez `sharp` do **WebP** (`static/*.webp`, łącznie ~305 KB za
 ~45 MB). Podpięte: `hero.webp` w tło hero (z overlayem dla czytelności podpisu) oraz
 6 okładek `salon-0X-*.webp` w karty „Wyróżnione salony" (kategorie dopasowane do
 nazw plików). Źródłowe PNG-i pozostają w `static/` — do usunięcia po akceptacji
-(nieużywane, bez nich repo/deploy odchudza się o ~45 MB).
+(nieużywane, bez nich repo/deploy odchudza się o ~45 MB). Uwaga: na `main`
+z wcześniejszego uploadu leży też stray `hero.png` w root repo (nieużywany).
+
+**Deploy produkcyjny (2026-07-16):** gałąź `claude/beauty-portal-rebuild-e1gkqx`
+scalona do `main` i wypchnięta — Cloudflare Pages buduje produkcję z `main`.
 
 ---
 
