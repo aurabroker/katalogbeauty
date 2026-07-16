@@ -6,7 +6,7 @@
   import AuthForm from '$lib/components/AuthForm.svelte';
   import Modal from '$lib/components/Modal.svelte';
   import Spinner from '$lib/components/Spinner.svelte';
-  import Footer from '$lib/components/Footer.svelte';
+  import PanelShell from '$lib/components/PanelShell.svelte';
   import type { Database, SalonWithRelations, Service, GalleryAsset, Json } from '$lib/database.types';
 
   const MEDIA_BUCKET = 'salon-media';
@@ -17,12 +17,69 @@
   let loadingData = $state(false);
   let loadedFor: string | null = null; // user.id, dla którego już wczytano dane
 
-  let activeTab = $state('salon');
-  const tabs = [
-    { id: 'salon', label: '📋 Dane salonu' },
-    { id: 'services', label: '✂️ Zabiegi' },
-    { id: 'photos', label: '📷 Zdjęcia' }
+  let activeTab = $state('pulpit');
+
+  const navGroups = [
+    {
+      items: [
+        { id: 'pulpit', label: 'Pulpit', icon: 'grid' },
+        { id: 'salon', label: 'Profil firmy', icon: 'building' },
+        { id: 'services', label: 'Usługi i cennik', icon: 'scissors' },
+        { id: 'photos', label: 'Galeria', icon: 'image' }
+      ]
+    },
+    {
+      label: 'Rekrutacja',
+      items: [{ id: 'jobs', label: 'Oferty pracy', icon: 'briefcase', href: '/jobs/panel' }]
+    },
+    {
+      label: 'Konto',
+      items: [{ id: 'abonament', label: 'Abonament', icon: 'crown' }]
+    }
   ];
+
+  const TITLES: Record<string, string> = {
+    pulpit: 'Pulpit',
+    salon: 'Profil firmy',
+    services: 'Usługi i cennik',
+    photos: 'Galeria',
+    abonament: 'Abonament'
+  };
+  const panelTitle = $derived(TITLES[activeTab] ?? 'Panel salonu');
+
+  // Kompletność profilu (widget Pulpitu)
+  const completeness = $derived.by(() => {
+    if (!currentSalon) return 0;
+    const checks = [
+      !!form.name?.trim(),
+      !!form.city?.trim(),
+      !!form.description?.trim(),
+      !!(form.phone?.trim() || form.email_contact?.trim()),
+      services.length > 0,
+      photos.length > 0
+    ];
+    return Math.round((checks.filter(Boolean).length / checks.length) * 100);
+  });
+
+  const statusLabel = $derived(
+    !currentSalon
+      ? 'Brak profilu'
+      : currentSalon.status === 'active'
+        ? 'Aktywny'
+        : currentSalon.status === 'suspended' || currentSalon.status === 'archived'
+          ? 'Wstrzymany'
+          : 'Szkic'
+  );
+
+  const plans = [
+    { name: 'Free', price: '0 zł', per: '/mies.', featured: false, cta: 'Twój pakiet', feats: ['Profil w katalogu', 'Do 5 zabiegów', 'Podstawowe statystyki'] },
+    { name: 'Pro', price: '99 zł', per: '/mies.', featured: true, cta: 'Wybierz Pro', feats: ['Wszystko z Free', 'Nielimitowane zabiegi i zdjęcia', 'Wyróżnienie w wynikach', 'Oferty pracy w niższej cenie'] },
+    { name: 'Premium', price: '199 zł', per: '/mies.', featured: false, cta: 'Wybierz Premium', feats: ['Wszystko z Pro', 'Priorytet w wyszukiwarce', 'Kampanie i reklama', 'Opiekun konta'] }
+  ];
+
+  function choosePlan(name: string) {
+    toast(`Pakiet ${name}: płatności abonamentowe będą dostępne wkrótce.`, 'info');
+  }
 
   // formularz salonu
   let form = $state(emptyForm());
@@ -382,27 +439,78 @@
   <Spinner />
 {:else if !auth.user}
   <AuthForm
-    title="Panel właściciela"
-    subtitle="Zaloguj się lub utwórz konto, aby zarządzać swoim salonem."
+    title="Panel salonu"
+    subtitle="Zaloguj się lub utwórz konto, aby zarządzać profilem salonu w VELORA."
+    backHref="/"
+    backLabel="← Strona główna VELORA"
   />
 {:else}
-  <main class="bk-container" style="padding-top:2rem;padding-bottom:4rem">
-    <div class="topbar">
-      <div>
-        <h1>Panel właściciela</h1>
-        <p class="email">{auth.user.email}</p>
-      </div>
-      <button class="bk-btn bk-btn-outline" style="font-size:.8rem;padding:.4rem .9rem" onclick={logout}>Wyloguj</button>
-    </div>
-
-    <div class="tabs">
-      {#each tabs as t}
-        <button class="tab" class:on={activeTab === t.id} onclick={() => (activeTab = t.id)}>{t.label}</button>
-      {/each}
-    </div>
-
+  <PanelShell
+    title={panelTitle}
+    breadcrumb="Panel salonu"
+    nav={navGroups}
+    active={activeTab}
+    accent="gold"
+    userName={currentSalon?.name || 'Twój salon'}
+    userMeta={auth.user.email}
+    searchPlaceholder="Szukaj w panelu…"
+    onselect={(id) => (activeTab = id)}
+    onlogout={logout}
+  >
     {#if loadingData}
       <Spinner />
+    {:else if activeTab === 'pulpit'}
+      <!-- PULPIT -->
+      <div class="dash">
+        <div class="dash-kpis">
+          <div class="kpi">
+            <span class="kpi-l">Status profilu</span>
+            <span class="kpi-v">{statusLabel}</span>
+            <span class="kpi-hint">{currentSalon ? 'Widoczność w katalogu' : 'Dodaj profil, aby zacząć'}</span>
+          </div>
+          <div class="kpi">
+            <span class="kpi-l">Zabiegi w cenniku</span>
+            <span class="kpi-v">{services.length}</span>
+            <span class="kpi-hint">usług w ofercie</span>
+          </div>
+          <div class="kpi">
+            <span class="kpi-l">Zdjęcia w galerii</span>
+            <span class="kpi-v">{photos.length}</span>
+            <span class="kpi-hint">zdjęć salonu</span>
+          </div>
+          <div class="kpi kpi-dark">
+            <span class="kpi-l">Abonament</span>
+            <span class="kpi-v">Free</span>
+            <button type="button" class="kpi-link" onclick={() => (activeTab = 'abonament')}>Rozszerz pakiet →</button>
+          </div>
+        </div>
+
+        <div class="dash-row">
+          <div class="dash-card">
+            <div class="dash-card-head">
+              <h3>Kompletność profilu</h3>
+              <span class="dash-pct">{completeness}%</span>
+            </div>
+            <div class="dash-bar"><span style="width:{completeness}%"></span></div>
+            <p class="dash-note">Uzupełnij dane, cennik i zdjęcia, aby zwiększyć widoczność w katalogu.</p>
+            <button type="button" class="bk-btn bk-btn-primary" style="align-self:flex-start" onclick={() => (activeTab = 'salon')}>Uzupełnij profil</button>
+          </div>
+          <div class="dash-card">
+            <div class="dash-card-head"><h3>Szybkie akcje</h3></div>
+            <div class="dash-actions">
+              <button type="button" onclick={() => (activeTab = 'salon')}>Edytuj dane firmy</button>
+              <button type="button" onclick={() => (activeTab = 'services')}>Dodaj zabieg do cennika</button>
+              <button type="button" onclick={() => (activeTab = 'photos')}>Dodaj zdjęcia</button>
+              {#if currentSalon}<a href="/salon/{currentSalon.id}" target="_blank" rel="noopener">Podgląd profilu publicznego ↗</a>{/if}
+            </div>
+          </div>
+        </div>
+
+        <div class="dash-card">
+          <div class="dash-card-head"><h3>Dzisiejszy grafik</h3></div>
+          <div class="dash-empty">Rezerwacje online pojawią się tutaj. Moduł kalendarza jest w przygotowaniu.</div>
+        </div>
+      </div>
     {:else if activeTab === 'salon'}
       <!-- DANE SALONU -->
       <div style="max-width:720px">
@@ -548,8 +656,27 @@
           {/if}
         </div>
       {/if}
+    {:else if activeTab === 'abonament'}
+      <!-- ABONAMENT -->
+      <div style="max-width:900px">
+        <div class="section-head"><h2>Wybierz pakiet</h2></div>
+        <p style="font-size:.85rem;color:var(--muted);margin-bottom:1.5rem">Zacznij za darmo, rozwijaj salon gdy rośnie. Ceny netto, rozliczenie miesięczne.</p>
+        <div class="plans">
+          {#each plans as p (p.name)}
+            <div class="plan" class:featured={p.featured}>
+              {#if p.featured}<span class="plan-ribbon">Najczęściej wybierany</span>{/if}
+              <span class="plan-name">{p.name}</span>
+              <div class="plan-price"><span class="plan-amt">{p.price}</span><span class="plan-per">{p.per}</span></div>
+              <ul class="plan-feats">
+                {#each p.feats as f}<li>{f}</li>{/each}
+              </ul>
+              <button type="button" class="plan-cta" class:ghost={p.name === 'Free'} disabled={p.name === 'Free'} onclick={() => choosePlan(p.name)}>{p.cta}</button>
+            </div>
+          {/each}
+        </div>
+      </div>
     {/if}
-  </main>
+  </PanelShell>
 
   <!-- MODAL: usuwanie salonu -->
   <Modal bind:open={deleteOpen}>
@@ -588,7 +715,6 @@
     </div>
   </Modal>
 
-  <Footer><span style="color:var(--muted)">© 2026 BeautyKatalog</span></Footer>
 {/if}
 
 {#snippet section(title: string)}
@@ -596,47 +722,257 @@
 {/snippet}
 
 <style>
-  .topbar {
+  /* PULPIT */
+  .dash {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  .dash-kpis {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+  }
+  .kpi {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .kpi-dark {
+    background: var(--sidebar-bg);
+  }
+  .kpi-l {
+    font-size: 12px;
+    color: var(--ink-3);
+    font-weight: 500;
+  }
+  .kpi-dark .kpi-l {
+    color: var(--gold);
+  }
+  .kpi-v {
+    font-family: var(--serif);
+    font-size: 32px;
+    line-height: 1;
+    color: var(--ink);
+  }
+  .kpi-dark .kpi-v {
+    color: var(--porcelain);
+  }
+  .kpi-hint {
+    font-size: 12px;
+    color: var(--ink-3);
+  }
+  .kpi-link {
+    align-self: flex-start;
+    background: none;
+    border: none;
+    color: var(--champagne);
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0;
+  }
+  .dash-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .dash-card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .dash-card-head {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 1rem;
-    margin-bottom: 2rem;
   }
-  .topbar h1 {
-    font-size: 1.5rem;
-    margin-bottom: 0.15rem;
-  }
-  .email {
-    font-size: 0.8rem;
-    color: var(--muted);
-  }
-  .tabs {
-    display: flex;
-    gap: 0.25rem;
-    border-bottom: 2px solid var(--border);
-    margin-bottom: 1.75rem;
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-  .tab {
-    padding: 0.5rem 1.1rem;
-    border: none;
-    background: none;
+  .dash-card-head h3 {
+    font-size: 15px;
     font-weight: 700;
-    font-size: 0.85rem;
-    color: var(--muted);
+    color: var(--ink);
+  }
+  .dash-pct {
+    font-family: var(--serif);
+    font-size: 22px;
+    color: var(--copper);
+  }
+  .dash-bar {
+    height: 10px;
+    border-radius: 999px;
+    background: var(--linen);
+    overflow: hidden;
+  }
+  .dash-bar span {
+    display: block;
+    height: 100%;
+    background: linear-gradient(90deg, var(--gold), var(--copper));
+    border-radius: 999px;
+    transition: width 0.3s;
+  }
+  .dash-note {
+    font-size: 13px;
+    color: var(--ink-2);
+  }
+  .dash-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .dash-actions button,
+  .dash-actions a {
+    text-align: left;
+    background: var(--porcelain);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 11px 14px;
+    font-family: inherit;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--ink);
     cursor: pointer;
-    border-bottom: 2px solid transparent;
-    white-space: nowrap;
-    margin-bottom: -2px;
     transition: 0.15s;
   }
-  .tab.on {
-    color: var(--v);
-    border-bottom-color: var(--v);
+  .dash-actions button:hover,
+  .dash-actions a:hover {
+    border-color: var(--gold);
   }
+  .dash-empty {
+    border: 1px dashed var(--line-strong);
+    border-radius: 12px;
+    padding: 26px;
+    text-align: center;
+    font-size: 13.5px;
+    color: var(--ink-3);
+  }
+
+  /* ABONAMENT */
+  .plans {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+  .plan {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 26px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    position: relative;
+  }
+  .plan.featured {
+    background: var(--sidebar-bg);
+    border: 1px solid var(--gold);
+    color: var(--porcelain);
+  }
+  .plan-ribbon {
+    position: absolute;
+    top: -11px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--gold);
+    color: var(--ink);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 4px 12px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  .plan-name {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--copper);
+  }
+  .plan.featured .plan-name {
+    color: var(--champagne);
+  }
+  .plan-price {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+  }
+  .plan-amt {
+    font-family: var(--serif);
+    font-size: 34px;
+    color: inherit;
+  }
+  .plan-per {
+    font-size: 13px;
+    color: var(--ink-3);
+  }
+  .plan.featured .plan-per {
+    color: #c9bcad;
+  }
+  .plan-feats {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    margin: 0;
+    padding: 0;
+    flex: 1;
+  }
+  .plan-feats li {
+    font-size: 13.5px;
+    color: var(--ink-2);
+    padding-left: 22px;
+    position: relative;
+  }
+  .plan.featured .plan-feats li {
+    color: #d8ccbc;
+  }
+  .plan-feats li::before {
+    content: '✓';
+    position: absolute;
+    left: 0;
+    color: var(--copper);
+    font-weight: 700;
+  }
+  .plan.featured .plan-feats li::before {
+    color: var(--gold);
+  }
+  .plan-cta {
+    border: none;
+    background: var(--ink);
+    color: var(--porcelain);
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 12px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: 0.18s;
+  }
+  .plan-cta:hover:not(:disabled) {
+    background: var(--copper);
+  }
+  .plan.featured .plan-cta {
+    background: var(--gold);
+    color: var(--ink);
+  }
+  .plan.featured .plan-cta:hover:not(:disabled) {
+    background: var(--champagne);
+  }
+  .plan-cta.ghost {
+    background: transparent;
+    border: 1px solid var(--line-strong);
+    color: var(--ink-2);
+    cursor: default;
+  }
+
   .section-head {
     display: flex;
     align-items: center;
@@ -709,8 +1045,22 @@
     justify-content: space-between;
     gap: 0.5rem;
   }
+  @media (max-width: 900px) {
+    .dash-kpis {
+      grid-template-columns: 1fr 1fr;
+    }
+    .dash-row {
+      grid-template-columns: 1fr;
+    }
+    .plans {
+      grid-template-columns: 1fr;
+    }
+  }
   @media (max-width: 560px) {
     .fg-2 {
+      grid-template-columns: 1fr;
+    }
+    .dash-kpis {
       grid-template-columns: 1fr;
     }
   }
