@@ -56,6 +56,30 @@ export const EMPLOYMENT_LABELS: Record<Employment, string> = {
   dowolna: 'Dowolna'
 };
 
+/** Format szkolenia → etykieta */
+export const TRAINING_FORMATS: Record<string, string> = {
+  stacjonarnie: 'Stacjonarnie',
+  online: 'Online',
+  online_praktyka: 'Online + praktyka'
+};
+export function formatLabel(f: string | null | undefined): string {
+  return f ? (TRAINING_FORMATS[f] ?? f) : '';
+}
+
+/** Data szkolenia: "2026-09-12" → "12 wrz 2026" */
+export function trainingDate(iso: string | null | undefined): string {
+  if (!iso) return 'Termin wkrótce';
+  return new Date(iso).toLocaleDateString('pl-PL', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+/** Etykieta miejsc: "Zostało N miejsc" / "Brak miejsc" */
+export function seatsLabel(total: number | null, taken: number): string {
+  if (total == null) return 'Zapisy otwarte';
+  const left = Math.max(0, total - taken);
+  if (left === 0) return 'Brak miejsc';
+  return `${plural(left, 'wolne miejsce', 'wolne miejsca', 'wolnych miejsc')}`;
+}
+
 /** Odmiana liczebnika: "1 salon", "3 salony", "8 salonów" */
 export function plural(n: number, one: string, few: string, many: string): string {
   if (n === 1) return `1 ${one}`;

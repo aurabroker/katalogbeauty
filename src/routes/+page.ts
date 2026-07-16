@@ -1,9 +1,9 @@
 import type { PageLoad } from './$types';
 import { sb } from '$lib/supabase';
-import type { SalonWithRelations, JobListing } from '$lib/database.types';
+import type { SalonWithRelations, JobListing, Training } from '$lib/database.types';
 
 export const load: PageLoad = async () => {
-  const [salonsRes, jobsRes] = await Promise.all([
+  const [salonsRes, jobsRes, trainingsRes] = await Promise.all([
     // Wyróżnione salony — 6 najnowszych aktywnych salonów katalogu
     sb
       .from('salons')
@@ -22,12 +22,22 @@ export const load: PageLoad = async () => {
       .select('*')
       .eq('status', 'active')
       .order('created_at', { ascending: false })
-      .limit(5)
+      .limit(5),
+
+    // Polecane szkolenia — 4 najbliższe aktywne
+    sb
+      .from('trainings')
+      .select('*')
+      .eq('status', 'active')
+      .eq('source', 'katalog')
+      .order('event_date', { ascending: true })
+      .limit(4)
   ]);
 
   return {
     salons: (salonsRes.data ?? []) as unknown as SalonWithRelations[],
     featuredJobs: (jobsRes.data ?? []) as JobListing[],
+    trainings: (trainingsRes.data ?? []) as Training[],
     loadError: salonsRes.error?.message ?? ''
   };
 };

@@ -1,7 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
-  import { plural, salaryLabel, EMPLOYMENT_LABELS } from '$lib/utils';
-  import { toast } from '$lib/stores/toast.svelte';
+  import { plural, salaryLabel, EMPLOYMENT_LABELS, formatLabel, trainingDate, seatsLabel } from '$lib/utils';
   import type { PageProps } from './$types';
 
   let { data }: PageProps = $props();
@@ -128,23 +127,40 @@
 
   const jobFilters = ['Wszystkie', 'Fryzjerstwo', 'Kosmetyka', 'Barber', 'SPA / masaż', 'Medycyna estetyczna'];
 
-  /* ————— Polecane szkolenia (placeholder — filar w budowie) ————— */
+  /* ————— Polecane szkolenia (dane realne + placeholdery) ————— */
   const trainingTones = [
     'linear-gradient(150deg,#EBDAC2,#C9A98A)',
     'linear-gradient(150deg,#E7CFC6,#B98E7C)',
     'linear-gradient(150deg,#E4D2AE,#C6A15B)',
     'linear-gradient(150deg,#E9D8C2,#BFA07C)'
   ];
-  const trainings = [
-    { cat: 'Kosmetologia', title: 'Mezoterapia igłowa — kurs podstawowy', format: 'Stacjonarnie', city: 'Warszawa', date: '12 wrz 2026', price: '1 290 zł', seats: 'Zostało 6 miejsc' },
-    { cat: 'Fryzjerstwo', title: 'Koloryzacja i balayage — poziom II', format: 'Stacjonarnie', city: 'Kraków', date: '28 wrz 2026', price: '890 zł', seats: 'Zostały 4 miejsca' },
-    { cat: 'Stylizacja rzęs', title: 'Metody objętościowe 3D–6D', format: 'Online + praktyka', city: 'Wrocław', date: '5 paź 2026', price: '690 zł', seats: 'Zostało 8 miejsc' },
-    { cat: 'Makijaż', title: 'Makijaż ślubny i okolicznościowy', format: 'Stacjonarnie', city: 'Poznań', date: '19 paź 2026', price: '1 090 zł', seats: 'Zostało 5 miejsc' }
-  ];
-
-  function trainingSoon() {
-    toast('Zapisy na szkolenia będą dostępne wkrótce.', 'info');
+  interface TrainingVM {
+    href: string;
+    cat: string;
+    title: string;
+    meta: string;
+    price: string;
+    seats: string;
   }
+  const trainingCards = $derived.by<TrainingVM[]>(() => {
+    const real = data.trainings ?? [];
+    if (real.length) {
+      return real.map((t) => ({
+        href: `/szkolenia/${t.slug}`,
+        cat: t.category ?? 'Szkolenie',
+        title: t.title,
+        meta: `${formatLabel(t.format)} · ${t.city ?? 'online'} · ${trainingDate(t.event_date)}`,
+        price: `${t.price_pln} zł`,
+        seats: seatsLabel(t.seats_total, t.seats_taken)
+      }));
+    }
+    return [
+      { cat: 'Kosmetologia', title: 'Mezoterapia igłowa — kurs podstawowy', meta: 'Stacjonarnie · Warszawa · 12 wrz 2026', price: '1 290 zł', seats: 'Zapisy otwarte' },
+      { cat: 'Fryzjerstwo', title: 'Koloryzacja i balayage — poziom II', meta: 'Stacjonarnie · Kraków · 28 wrz 2026', price: '890 zł', seats: 'Zapisy otwarte' },
+      { cat: 'Stylizacja rzęs', title: 'Metody objętościowe 3D–6D', meta: 'Online + praktyka · Wrocław · 5 paź 2026', price: '690 zł', seats: 'Zapisy otwarte' },
+      { cat: 'Makijaż', title: 'Makijaż ślubny i okolicznościowy', meta: 'Stacjonarnie · Poznań · 19 paź 2026', price: '1 090 zł', seats: 'Zapisy otwarte' }
+    ].map((p) => ({ href: '/szkolenia', ...p }));
+  });
 
   /* ————— Social proof (placeholder) ————— */
   const testimonials = [
@@ -324,23 +340,23 @@
         <span class="vel-eyebrow">Rozwój i certyfikacja</span>
         <h2 class="vel-h2">Polecane szkolenia</h2>
       </div>
-      <button type="button" class="vel-seeall" onclick={trainingSoon}>Wszystkie szkolenia →</button>
+      <a href="/szkolenia" class="vel-seeall">Wszystkie szkolenia →</a>
     </div>
     <div class="vel-trainings">
-      {#each trainings as t, i (t.title)}
-        <div class="vel-training">
+      {#each trainingCards as t, i (t.title)}
+        <a href={t.href} class="vel-training">
           <div class="vel-training-img" style="background:{trainingTones[i % trainingTones.length]}">
             <span class="vel-training-cat">{t.cat}</span>
           </div>
           <div class="vel-training-body">
             <span class="vel-training-title">{t.title}</span>
-            <span class="vel-training-meta">{t.format} · {t.city} · {t.date}</span>
+            <span class="vel-training-meta">{t.meta}</span>
             <div class="vel-training-foot">
               <div class="vel-training-price"><span class="p">{t.price}</span><span class="s">{t.seats}</span></div>
-              <button type="button" class="vel-pill-btn" onclick={trainingSoon}>Zapisz się</button>
+              <span class="vel-pill-btn">Zapisz się</span>
             </div>
           </div>
-        </div>
+        </a>
       {/each}
     </div>
   </div>
@@ -386,7 +402,7 @@
         <span class="vel-footer-h">Portal</span>
         <a href="/">Katalog salonów</a>
         <a href="/jobs">Oferty pracy</a>
-        <a href="/#szkolenia">Szkolenia</a>
+        <a href="/szkolenia">Szkolenia</a>
         <span class="vel-footer-soon">Magazyn</span>
       </div>
       <div class="vel-footer-col">
@@ -1089,6 +1105,7 @@
     transition: transform 0.25s, box-shadow 0.25s;
     display: flex;
     flex-direction: column;
+    color: inherit;
   }
   .vel-training:hover {
     transform: translateY(-5px);

@@ -313,6 +313,74 @@ export interface Database {
         Update: Partial<Database['public']['Tables']['profiles']['Insert']>;
         Relationships: [];
       };
+      trainings: {
+        Row: {
+          id: string;
+          slug: string | null;
+          title: string;
+          category: string | null;
+          description: string | null;
+          format: string;
+          city: string | null;
+          event_date: string | null;
+          price_pln: number;
+          seats_total: number | null;
+          seats_taken: number;
+          cover_url: string | null;
+          is_certified: boolean;
+          status: string;
+          source: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          slug?: string | null;
+          title: string;
+          category?: string | null;
+          description?: string | null;
+          format?: string;
+          city?: string | null;
+          event_date?: string | null;
+          price_pln?: number;
+          seats_total?: number | null;
+          seats_taken?: number;
+          cover_url?: string | null;
+          is_certified?: boolean;
+          status?: string;
+          source?: string;
+          created_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['trainings']['Insert']>;
+        Relationships: [];
+      };
+      training_enrollments: {
+        Row: {
+          id: string;
+          training_id: string;
+          user_id: string | null;
+          buyer_name: string | null;
+          buyer_email: string | null;
+          payment_method: string;
+          payment_status: string;
+          amount_pln: number;
+          status: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          training_id: string;
+          user_id?: string | null;
+          buyer_name?: string | null;
+          buyer_email?: string | null;
+          payment_method?: string;
+          payment_status?: string;
+          amount_pln?: number;
+          status?: string;
+          created_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['training_enrollments']['Insert']>;
+        Relationships: [];
+      };
     };
     Views: Record<never, never>;
     Functions: {
@@ -345,6 +413,8 @@ export type Profile = Database['public']['Tables']['profiles']['Row'];
 export type Staff = Database['public']['Tables']['staff']['Row'];
 export type Review = Database['public']['Tables']['reviews']['Row'];
 export type ServiceCategory = Database['public']['Tables']['service_categories']['Row'];
+export type Training = Database['public']['Tables']['trainings']['Row'];
+export type TrainingEnrollment = Database['public']['Tables']['training_enrollments']['Row'];
 
 /** Salon z dołączonymi relacjami (jak w zapytaniach z `select(...)`) */
 export type SalonWithRelations = Salon & {
