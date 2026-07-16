@@ -92,11 +92,37 @@ scalona do `main` i wypchnięta — Cloudflare Pages buduje produkcję z `main`.
 
 ---
 
+### Etap 2 — App-shell VELORA + Salon panel · 2026-07-16
+
+**Reużywalny app-shell (`src/lib/components/PanelShell.svelte`):**
+- Ciemny sidebar 250px (`--sidebar-bg`), monogram + wordmark VELORA, grupowana
+  nawigacja z ikonami SVG, aktywny element z lewym złotym borderem i miękkim tłem,
+  badge (zwykły/alert), karta konta + wylogowanie na dole, opcjonalny slot upsell.
+- Topbar 70px: breadcrumb + tytuł, pole wyszukiwania, dzwonek z kropką, avatar.
+- Warianty akcentu: `gold` (Salon/Admin) i `rose` (Klient) — sterowane propem.
+- Responsywny: < 900px sidebar jako wysuwany drawer (hamburger + backdrop).
+
+**Salon panel (`/panel`) przełożony na app-shell (akcent gold):**
+- Nawigacja sidebar: Pulpit · Profil firmy · Usługi i cennik · Galeria ·
+  (Rekrutacja) Oferty pracy · (Konto) Abonament. Dotychczasowe zakładki/formularze
+  (dane firmy, REGON, cennik CRUD, upload zdjęć) zachowane bez zmian.
+- **Pulpit** (nowy): KPI (status profilu, liczba zabiegów, zdjęć, abonament),
+  pasek kompletności profilu (liczony z realnych danych), szybkie akcje, miejsce
+  na grafik (kalendarz w przygotowaniu).
+- **Abonament** (nowy): karty Free / **Pro (featured)** / Premium z checklistą i CTA
+  (płatności — placeholder/toast „wkrótce").
+- `+layout.svelte`: publiczna nawigacja ukryta na trasach z app-shellem (`/panel`);
+  ekran logowania panelu ma własny link „← Strona główna VELORA".
+
+Weryfikacja: `npm run check` 0 błędów, `npm run build` OK, shell zweryfikowany
+zrzutem (desktop + mobile drawer). Zalogowany pulpit renderuje się z realnych
+danych salonu (auth przez Supabase).
+
 ## Roadmap (kolejne etapy)
 
-- **Etap 2 — Panele w designie VELORA:** wspólny app shell (sidebar + topbar),
-  Panel Salonu (pulpit, profil, kalendarz, usługi, oferty, kandydaci, abonament),
-  Panel Klienta (akcent różany), Panel Admina (KPI, wykresy, moderacja).
+- **Etap 2b — pozostałe panele:** Panel Admina (KPI, wykres przychodu, moderacja)
+  i Panel Klienta (akcent różany: rezerwacje, zapisane salony, aplikacje, CV,
+  szkolenia) na tym samym `PanelShell`.
 - **Etap 3 — Filar Szkolenia:** tabele Supabase (szkolenia, zapisy, faktury),
   katalog + karta szkolenia + checkout (karta/BLIK/Przelewy24) + certyfikacja.
 - **Etap 4 — Marketplace pracy 2.0:** flow aplikacji o pracę + CV, lejek kandydata
